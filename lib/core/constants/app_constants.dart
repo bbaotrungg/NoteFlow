@@ -13,11 +13,11 @@ class AppConstants {
   );
   static const String supabaseUrl = String.fromEnvironment(
     'SUPABASE_URL',
-    defaultValue: 'https://demo-noteflow-vku.supabase.co',
+    defaultValue: 'https://teeojjfcmbvzjmtxxucs.supabase.co',
   );
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue: 'demo-anon-key-offline-first-mode',
+    defaultValue: 'sb_publishable_fK8lwPEIJARBVc0BuPr6NA_U0Q6FoYP',
   );
 
   // Gemini Configuration

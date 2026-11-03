@@ -1,6 +1,7 @@
 # 🧠 NOTEFLOW AI — Smart Study Notes & Personalized Revision
-**Đồ án Capstone Học phần Phát triển Ứng dụng Di động Đa nền tảng (Flutter & Dart 3)**  
-**Khoa Khoa học Máy tính — Trường Đại học Công nghệ Thông tin và Truyền thông Việt - Hàn (VKU)**  
+
+**Đồ án Capstone Học phần Phát triển Ứng dụng Di động Đa nền tảng (Flutter & Dart 3)**
+**Khoa Khoa học Máy tính — Trường Đại học Công nghệ Thông tin và Truyền thông Việt - Hàn (VKU)**
 **Giảng viên hướng dẫn:** TS. Nguyễn Thanh Tuấn
 
 ---
@@ -62,17 +63,20 @@ noteflow_ai/
 ## 2. Hướng dẫn Cài đặt & Chạy Dự án
 
 ### Bước 1: Cài đặt thư viện
+
 ```bash
 cd noteflow_ai
 flutter pub get
 ```
 
 ### Bước 2: Chạy Kiểm thử Tự động (Unit Tests)
+
 ```bash
 flutter test
 ```
 
 ### Bước 3: Chạy Ứng dụng (Hỗ trợ cả chế độ có API Key hoặc Offline Demo tự động)
+
 ```bash
 # Chạy ngay lập tức với dữ liệu học thuật mẫu VKU và bộ tổng hợp Offline thông minh:
 flutter run
@@ -82,4 +86,5 @@ flutter run   --dart-define=GEMINI_API_KEY=AIzaSyYourKey   --dart-define=SUPABAS
 ```
 
 ### Bước 4: Khởi tạo Cơ sở dữ liệu Supabase Cloud
+
 Copy toàn bộ nội dung file `supabase/migrations/20261026000000_noteflow_schema_and_rls.sql` và chạy trực tiếp trong **Supabase SQL Editor** để khởi tạo 6 bảng dữ liệu, Indexes, Storage Bucket và chính sách bảo mật **Row-Level Security (RLS)**.
