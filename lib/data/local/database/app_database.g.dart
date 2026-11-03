@@ -3,7 +3,7 @@ part of 'app_database.dart';
 
 // ignore_for_file: type=lint, unused_element
 
-class _TableHandle extends TableInfo<Table, dynamic> {
+class _TableHandle extends Table with TableInfo<Table, dynamic> {
   final GeneratedDatabase _db;
   @override
   final String actualTableName;
