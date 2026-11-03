@@ -14,6 +14,8 @@ import '../widgets/charts/weekly_activity_bar_painter.dart';
 import 'flashcard_study_screen.dart';
 import 'ocr_ai_pipeline_screen.dart';
 import 'study_set_detail_screen.dart';
+import 'auth_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Màn hình chính của NoteFlow AI (Responsive Adaptive Layout cho cả Điện thoại dọc & Tablet xoay ngang)
 /// Tích hợp 4 phân khu:
@@ -206,6 +208,80 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       ? Icons.light_mode_rounded
                       : Icons.dark_mode_rounded,
                 ),
+              ),
+              IconButton(
+                tooltip: 'Tài khoản Sinh viên',
+                onPressed: () {
+                  final user = ref.read(currentUserProvider);
+                  showDialog<void>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: Row(
+                        children: [
+                          Icon(
+                            user != null
+                                ? Icons.account_circle_rounded
+                                : Icons.no_accounts_rounded,
+                            color: AppTheme.primarySkyBlue,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(user != null ? 'Tài Khoản' : 'Chế Độ Khách'),
+                        ],
+                      ),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user != null
+                                ? 'Email: ${user.email}\nTrạng thái: Đã đăng nhập Supabase Cloud (RLS Active)'
+                                : 'Bạn đang dùng chế độ Khách Offline.\nDữ liệu được lưu trong SQLite nội bộ máy.',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        if (user != null)
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.redAccent,
+                            ),
+                            icon: const Icon(Icons.logout_rounded, size: 18),
+                            label: const Text('Đăng Xuất'),
+                            onPressed: () async {
+                              Navigator.of(ctx).pop();
+                              await Supabase.instance.client.auth.signOut();
+                              if (context.mounted) {
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (_) => const AuthScreen(),
+                                  ),
+                                );
+                              }
+                            },
+                          )
+                        else
+                          FilledButton.icon(
+                            icon: const Icon(Icons.login_rounded, size: 18),
+                            label: const Text('Đăng Nhập Ngay'),
+                            onPressed: () {
+                              Navigator.of(ctx).pop();
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (_) => const AuthScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          child: const Text('Đóng'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.account_circle_outlined),
               ),
               const SizedBox(width: 6),
             ],

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'presentation/providers/app_providers.dart';
+import 'presentation/screens/auth_screen.dart';
 import 'presentation/screens/home_dashboard_screen.dart';
 
 Future<void> main() async {
@@ -37,13 +38,18 @@ class NoteFlowAiApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
 
+    bool hasSession = false;
+    try {
+      hasSession = Supabase.instance.client.auth.currentSession != null;
+    } catch (_) {}
+
     return MaterialApp(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
-      home: const HomeDashboardScreen(),
+      home: hasSession ? const HomeDashboardScreen() : const AuthScreen(),
     );
   }
 }

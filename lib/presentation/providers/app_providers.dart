@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/local/database/app_database.dart';
 import '../../data/repositories/study_repository_impl.dart';
@@ -45,7 +46,19 @@ final geminiAiServiceProvider = Provider<GeminiAiService>((ref) {
 
 final offlineSyncEngineProvider = Provider<OfflineSyncEngine>((ref) {
   final db = ref.watch(appDatabaseProvider);
-  return OfflineSyncEngine(db: db);
+  SupabaseClient? client;
+  try {
+    client = Supabase.instance.client;
+  } catch (_) {}
+  return OfflineSyncEngine(db: db, supabaseClient: client);
+});
+
+final currentUserProvider = Provider<User?>((ref) {
+  try {
+    return Supabase.instance.client.auth.currentUser;
+  } catch (_) {
+    return null;
+  }
 });
 
 final studyRepositoryProvider = Provider<IStudyRepository>((ref) {

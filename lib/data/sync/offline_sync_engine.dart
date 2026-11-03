@@ -105,6 +105,9 @@ class OfflineSyncEngine {
 
     final client = _supabaseClient;
     final payload = jsonDecode(item.payloadJson) as Map<String, dynamic>;
+    if (client.auth.currentUser != null) {
+      payload['user_id'] = client.auth.currentUser!.id;
+    }
     final recordId = item.recordId;
 
     // Kiểm tra phiên bản hiện có trên Supabase để phân xử xung đột LWW
