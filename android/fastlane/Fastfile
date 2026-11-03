@@ -1,0 +1,11 @@
+default_platform(:android)
+
+platform :android do
+  desc "Run Unit Tests and Build Production Release APK for NoteFlow AI (VKU Capstone)"
+  lane :release_apk do
+    sh("flutter clean")
+    sh("flutter pub get")
+    sh("flutter test")
+    sh("flutter build apk --release")
+  end
+end
