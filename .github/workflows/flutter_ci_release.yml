@@ -38,10 +38,14 @@ jobs:
 
       - name: Build Production APK
         run: |
-          flutter build apk --release             --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}             --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}             --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          flutter build apk --release \
+            --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          cp build/app/outputs/flutter-apk/*.apk build/app/outputs/flutter-apk/NoteFlow-AI-v1.0.0.apk || true
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: noteflow-ai-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: NoteFlow-AI-v1.0.0-apk
+          path: build/app/outputs/flutter-apk/NoteFlow-AI-v1.0.0.apk

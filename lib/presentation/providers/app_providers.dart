@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/constants/app_constants.dart';
+
 import '../../data/local/database/app_database.dart';
 import '../../data/repositories/study_repository_impl.dart';
 import '../../data/services/gemini_ai_service.dart';
@@ -47,13 +49,16 @@ final geminiAiServiceProvider = Provider<GeminiAiService>((ref) {
 final offlineSyncEngineProvider = Provider<OfflineSyncEngine>((ref) {
   final db = ref.watch(appDatabaseProvider);
   SupabaseClient? client;
-  try {
-    client = Supabase.instance.client;
-  } catch (_) {}
+  if (AppConstants.isSupabaseInitialized) {
+    try {
+      client = Supabase.instance.client;
+    } catch (_) {}
+  }
   return OfflineSyncEngine(db: db, supabaseClient: client);
 });
 
 final currentUserProvider = Provider<User?>((ref) {
+  if (!AppConstants.isSupabaseInitialized) return null;
   try {
     return Supabase.instance.client.auth.currentUser;
   } catch (_) {

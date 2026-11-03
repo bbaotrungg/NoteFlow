@@ -20,6 +20,9 @@ class AppConstants {
     defaultValue: 'sb_publishable_fK8lwPEIJARBVc0BuPr6NA_U0Q6FoYP',
   );
 
+  /// Cờ trạng thái Supabase đã được khởi tạo thành công hay chưa
+  static bool isSupabaseInitialized = false;
+
   // Gemini Configuration
   static const String geminiModelName = 'gemini-1.5-flash';
   static const Duration apiTimeout = Duration(seconds: 35);

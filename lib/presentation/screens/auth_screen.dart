@@ -55,6 +55,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
   Future<void> _handleLogin() async {
     if (!_loginFormKey.currentState!.validate()) return;
+    if (!AppConstants.isSupabaseInitialized) {
+      _showErrorSnackBar(
+        'Supabase chưa được kết nối. Vui lòng bấm "Dùng thử Offline" bên dưới để vào app ngay!',
+      );
+      return;
+    }
     setState(() => _isLoading = true);
 
     try {
@@ -100,6 +106,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
 
   Future<void> _handleRegister() async {
     if (!_registerFormKey.currentState!.validate()) return;
+    if (!AppConstants.isSupabaseInitialized) {
+      _showErrorSnackBar(
+        'Supabase chưa được kết nối. Vui lòng bấm "Dùng thử Offline" bên dưới để vào app ngay!',
+      );
+      return;
+    }
     setState(() => _isLoading = true);
 
     try {

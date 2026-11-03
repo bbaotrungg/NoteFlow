@@ -11,17 +11,18 @@ import 'presentation/screens/home_dashboard_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Khởi tạo Supabase BaaS an toàn nếu đã cấu hình URL thực tế qua --dart-define
-  if (AppConstants.supabaseUrl.isNotEmpty &&
-      !AppConstants.supabaseUrl.contains('demo-noteflow-vku')) {
-    try {
+  // Khởi tạo Supabase BaaS an toàn tuyệt đối, không bao giờ để crash app
+  try {
+    if (AppConstants.supabaseUrl.isNotEmpty &&
+        !AppConstants.supabaseUrl.contains('demo-noteflow-vku')) {
       await Supabase.initialize(
         url: AppConstants.supabaseUrl,
         anonKey: AppConstants.supabaseAnonKey,
       );
-    } catch (e) {
-      debugPrint('Supabase initialization skipped (Offline-First fallback active): $e');
+      AppConstants.isSupabaseInitialized = true;
     }
+  } catch (e) {
+    debugPrint('Supabase initialization skipped (Offline-First mode active): $e');
   }
 
   runApp(
@@ -39,9 +40,11 @@ class NoteFlowAiApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     bool hasSession = false;
-    try {
-      hasSession = Supabase.instance.client.auth.currentSession != null;
-    } catch (_) {}
+    if (AppConstants.isSupabaseInitialized) {
+      try {
+        hasSession = Supabase.instance.client.auth.currentSession != null;
+      } catch (_) {}
+    }
 
     return MaterialApp(
       title: AppConstants.appName,
@@ -49,7 +52,9 @@ class NoteFlowAiApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
-      home: hasSession ? const HomeDashboardScreen() : const AuthScreen(),
+      home: (AppConstants.isSupabaseInitialized && !hasSession)
+          ? const AuthScreen()
+          : const HomeDashboardScreen(),
     );
   }
 }
