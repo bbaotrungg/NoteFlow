@@ -11,7 +11,7 @@ import 'quiz_challenge_screen.dart';
 
 /// Màn hình Chi tiết Bộ học liệu (Study Set Detail)
 /// Cho phép xem bản tóm tắt Markdown, danh sách Flashcards kèm lịch ôn tập SM-2,
-/// và khởi chạy phiên học Flashcard 3D hoặc Quiz bấm giờ.
+/// xóa bộ học liệu (Tombstone Soft-Delete), và khởi chạy phiên học Flashcard 3D hoặc Quiz bấm giờ.
 class StudySetDetailScreen extends ConsumerWidget {
   final String studySetId;
 
@@ -20,24 +20,113 @@ class StudySetDetailScreen extends ConsumerWidget {
     required this.studySetId,
   });
 
+  Future<void> _confirmDeleteStudySet(BuildContext context, WidgetRef ref, StudySetEntity studySet) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận xóa bộ học liệu'),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa bộ học liệu "${studySet.title}"?\n'
+          'Bộ học liệu cùng các thẻ ghi nhớ và câu hỏi quiz sẽ được đánh dấu xóa (Tombstone) và đồng bộ Cloud.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.roseDanger),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Xóa Bộ Học Liệu'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(studyRepositoryProvider).softDeleteStudySet(studySet.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã xóa bộ học liệu "${studySet.title}"'),
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detailAsync = ref.watch(studySetDetailStreamProvider(studySetId));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chi tiết Bộ Học Liệu AI'),
+    return detailAsync.when(
+      loading: () => Scaffold(
+        appBar: AppBar(title: const Text('Chi tiết Bộ Học Liệu AI')),
+        body: const Center(child: CircularProgressIndicator()),
       ),
-      body: detailAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Lỗi tải bộ học liệu: $err')),
-        data: (studySet) {
-          if (studySet == null) {
-            return const Center(child: Text('Không tìm thấy bộ học liệu.'));
-          }
-          return _buildContent(context, studySet);
-        },
+      error: (err, _) => Scaffold(
+        appBar: AppBar(title: const Text('Chi tiết Bộ Học Liệu AI')),
+        body: Center(child: Text('Lỗi tải bộ học liệu: $err')),
       ),
+      data: (studySet) {
+        if (studySet == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Chi tiết Bộ Học Liệu AI')),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.inventory_2_outlined, size: 54, color: Colors.grey),
+                    const SizedBox(height: 12),
+                    const Text('Không tìm thấy bộ học liệu này',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    const Text('Bộ học liệu có thể đã bị xóa hoặc chưa được đồng bộ.',
+                        style: TextStyle(color: Colors.grey, fontSize: 13)),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Quay lại Bảng điều khiển'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Chi tiết Bộ Học Liệu AI'),
+            actions: [
+              PopupMenuButton<String>(
+                tooltip: 'Tùy chọn',
+                onSelected: (val) {
+                  if (val == 'delete') {
+                    _confirmDeleteStudySet(context, ref, studySet);
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline_rounded, color: AppTheme.roseDanger, size: 20),
+                        SizedBox(width: 8),
+                        Text('Xóa bộ học liệu', style: TextStyle(color: AppTheme.roseDanger)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          body: _buildContent(context, studySet),
+        );
+      },
     );
   }
 
@@ -162,8 +251,8 @@ class StudySetDetailScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: isDue
-                              ? AppTheme.amberWarning.withOpacity(0.55)
-                              : Colors.grey.withOpacity(0.25),
+                              ? AppTheme.amberWarning.withValues(alpha: 0.55)
+                              : Colors.grey.withValues(alpha: 0.25),
                         ),
                       ),
                       child: Column(
@@ -179,7 +268,7 @@ class StudySetDetailScreen extends ConsumerWidget {
                                   color: (isDue
                                           ? AppTheme.amberWarning
                                           : AppTheme.emeraldAccent)
-                                      .withOpacity(0.16),
+                                      .withValues(alpha: 0.16),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(

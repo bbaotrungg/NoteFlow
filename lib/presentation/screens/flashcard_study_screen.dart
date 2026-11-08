@@ -105,7 +105,7 @@ class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: AppTheme.primarySkyBlue.withOpacity(0.15),
+                  color: AppTheme.primarySkyBlue.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -165,7 +165,7 @@ class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 8,
-              backgroundColor: AppTheme.primarySkyBlue.withOpacity(0.15),
+              backgroundColor: AppTheme.primarySkyBlue.withValues(alpha: 0.15),
               valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primarySkyBlue),
             ),
           ),
@@ -215,9 +215,9 @@ class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
                       decoration: BoxDecoration(
-                        color: btnColor.withOpacity(0.14),
+                        color: btnColor.withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: btnColor.withOpacity(0.55), width: 1.4),
+                        border: Border.all(color: btnColor.withValues(alpha: 0.55), width: 1.4),
                       ),
                       child: Column(
                         children: [
@@ -311,9 +311,9 @@ class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.45)),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
       ),
       child: Text(
         '$label: $count thẻ',

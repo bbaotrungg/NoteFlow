@@ -137,10 +137,10 @@ class _SubjectStudyDonutChartState extends State<SubjectStudyDonutChart>
                 duration: const Duration(milliseconds: 220),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isSelected ? color.withOpacity(0.18) : Colors.transparent,
+                  color: isSelected ? color.withValues(alpha: 0.18) : Colors.transparent,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected ? color : color.withOpacity(0.35),
+                    color: isSelected ? color : color.withValues(alpha: 0.35),
                     width: isSelected ? 1.6 : 1.0,
                   ),
                 ),

@@ -17,6 +17,7 @@ Future<void> main() async {
         !AppConstants.supabaseUrl.contains('demo-noteflow-vku')) {
       await Supabase.initialize(
         url: AppConstants.supabaseUrl,
+        // ignore: deprecated_member_use
         anonKey: AppConstants.supabaseAnonKey,
       );
       AppConstants.isSupabaseInitialized = true;

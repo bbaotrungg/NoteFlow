@@ -133,7 +133,7 @@ class _Interactive3DFlashcardState extends State<Interactive3DFlashcard>
             : Duration.zero,
         curve: Curves.easeOutBack,
         transform: Matrix4.identity()
-          ..translate(_dragOffset.dx, _dragOffset.dy)
+          ..setTranslationRaw(_dragOffset.dx, _dragOffset.dy, 0.0)
           ..rotateZ(tiltZ),
         child: AnimatedBuilder(
           animation: _flipAnimation,
@@ -197,13 +197,13 @@ class _Interactive3DFlashcardState extends State<Interactive3DFlashcard>
           color: previewRating != null
               ? _badgeColorForRating(previewRating)
               : (isFront
-                  ? AppTheme.primarySkyBlue.withOpacity(0.45)
-                  : AppTheme.emeraldAccent.withOpacity(0.55)),
+                  ? AppTheme.primarySkyBlue.withValues(alpha: 0.45)
+                  : AppTheme.emeraldAccent.withValues(alpha: 0.55)),
           width: previewRating != null ? 2.8 : 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.35 : 0.08),
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
@@ -220,7 +220,7 @@ class _Interactive3DFlashcardState extends State<Interactive3DFlashcard>
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: (isFront ? AppTheme.primarySkyBlue : AppTheme.emeraldAccent)
-                      .withOpacity(0.16),
+                      .withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -274,30 +274,35 @@ class _Interactive3DFlashcardState extends State<Interactive3DFlashcard>
               ),
             ),
           ],
-          const Spacer(),
-          // Nội dung chính của thẻ
-          SingleChildScrollView(
-            child: Text(
-              isFront ? card.frontText : card.backText,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: isFront ? 20 : 18,
-                height: 1.45,
-                fontWeight: isFront ? FontWeight.w700 : FontWeight.w500,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
+          const SizedBox(height: 12),
+          // Nội dung chính của thẻ (Scrollable nếu văn bản dài)
+          Expanded(
+            child: Center(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Text(
+                  isFront ? card.frontText : card.backText,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: isFront ? 19 : 17,
+                    height: 1.45,
+                    fontWeight: isFront ? FontWeight.w700 : FontWeight.w500,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
               ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 12),
           // Gợi ý (Hint) và hướng dẫn lật 3D
           if (isFront && card.hint != null && card.hint!.isNotEmpty) ...[
             if (_showHint)
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.amberWarning.withOpacity(0.14),
+                  color: AppTheme.amberWarning.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.amberWarning.withOpacity(0.4)),
+                  border: Border.all(color: AppTheme.amberWarning.withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   children: [

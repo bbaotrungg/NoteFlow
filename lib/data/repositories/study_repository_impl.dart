@@ -47,6 +47,10 @@ class StudyRepositoryImpl implements IStudyRepository {
   Stream<List<FlashcardEntity>> watchDueFlashcards() => _db.studyDao.watchDueFlashcards();
 
   @override
+  Stream<List<FlashcardEntity>> watchAllActiveFlashcards() =>
+      _db.studyDao.watchAllActiveFlashcards();
+
+  @override
   Stream<List<StudySessionEntity>> watchRecentSessions({int days = 7}) =>
       _db.studyDao.watchRecentSessions(days: days);
 
@@ -120,6 +124,24 @@ class StudyRepositoryImpl implements IStudyRepository {
       await _db.syncDao.enqueueMutation(
         tableName: 'subjects',
         recordId: subjectId,
+        operation: SyncOperation.delete,
+        payloadJson: jsonEncode(deleted.toSyncJson()),
+      );
+    });
+  }
+
+  @override
+  Future<void> softDeleteStudySet(String studySetId) async {
+    final existing = await _db.studyDao.getStudySetById(studySetId);
+    if (existing == null) return;
+    final now = DateTime.now();
+    final deleted = existing.copyWith(isDeleted: true, updatedAt: now);
+
+    await _db.transaction(() async {
+      await _db.studyDao.tombstoneDeleteStudySet(studySetId, now);
+      await _db.syncDao.enqueueMutation(
+        tableName: 'study_sets',
+        recordId: studySetId,
         operation: SyncOperation.delete,
         payloadJson: jsonEncode(deleted.toSyncJson()),
       );

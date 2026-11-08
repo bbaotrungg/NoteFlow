@@ -15,6 +15,7 @@ abstract class IStudyRepository {
   Stream<List<StudySetEntity>> watchAllStudySets();
   Stream<StudySetEntity?> watchStudySetDetail(String studySetId);
   Stream<List<FlashcardEntity>> watchDueFlashcards();
+  Stream<List<FlashcardEntity>> watchAllActiveFlashcards();
   Stream<List<StudySessionEntity>> watchRecentSessions({int days = 7});
   Stream<int> watchPendingSyncCount();
 
@@ -26,6 +27,9 @@ abstract class IStudyRepository {
   });
   Future<void> updateSubject(SubjectEntity subject);
   Future<void> softDeleteSubject(String subjectId);
+
+  // Quản lý Bộ học liệu & Xóa mềm Tombstone
+  Future<void> softDeleteStudySet(String studySetId);
 
   // Pipeline Tài liệu + AI Study Set
   Future<StudySetEntity> saveDocumentAndStudySet({

@@ -108,6 +108,10 @@ final dueFlashcardsStreamProvider = StreamProvider<List<FlashcardEntity>>((ref) 
   return ref.watch(studyRepositoryProvider).watchDueFlashcards();
 });
 
+final allActiveFlashcardsStreamProvider = StreamProvider<List<FlashcardEntity>>((ref) {
+  return ref.watch(studyRepositoryProvider).watchAllActiveFlashcards();
+});
+
 final recentSessionsStreamProvider = StreamProvider<List<StudySessionEntity>>((ref) {
   return ref.watch(studyRepositoryProvider).watchRecentSessions(days: 7);
 });

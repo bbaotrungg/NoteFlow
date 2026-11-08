@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
@@ -11,16 +12,15 @@ import '../providers/app_providers.dart';
 import '../widgets/charts/retention_curve_painter.dart';
 import '../widgets/charts/subject_donut_painter.dart';
 import '../widgets/charts/weekly_activity_bar_painter.dart';
+import 'auth_screen.dart';
 import 'flashcard_study_screen.dart';
 import 'ocr_ai_pipeline_screen.dart';
 import 'study_set_detail_screen.dart';
-import 'auth_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Màn hình chính của NoteFlow AI (Responsive Adaptive Layout cho cả Điện thoại dọc & Tablet xoay ngang)
 /// Tích hợp 4 phân khu:
-/// 1. Tổng quan & Ôn tập nhanh SuperMemo SM-2
-/// 2. Quản lý Môn học & Bộ học liệu (CRUD + Tombstone Soft-Delete)
+/// 1. Tổng quan & Ôn tập thông minh SuperMemo SM-2
+/// 2. Quản lý Môn học & Bộ học liệu (CRUD + Tombstone Soft-Delete có xác nhận an toàn)
 /// 3. Phân tích Khoa học Nhận thức với 3 biểu đồ CustomPainter 60 FPS thuần Canvas
 /// 4. Trạng thái Đồng bộ Offline-First (Sync Queue & Last-Write-Wins)
 class HomeDashboardScreen extends ConsumerStatefulWidget {
@@ -107,11 +107,49 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     );
   }
 
+  Future<void> _confirmDeleteSubject(BuildContext context, SubjectEntity sub) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xác nhận xóa môn học'),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa môn học "${sub.code} - ${sub.title}"?\n\n'
+          'Môn học này sẽ được đánh dấu xóa (Tombstone Soft-Delete) và đồng bộ an toàn qua hàng đợi Offline-First.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.roseDanger),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Xóa Môn Học'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(studyRepositoryProvider).softDeleteSubject(sub.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Đã đánh dấu Tombstone (is_deleted=true) cho môn ${sub.code} và đưa vào Sync Queue.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final subjectsAsync = ref.watch(subjectsStreamProvider);
     final studySetsAsync = ref.watch(studySetsStreamProvider);
     final dueCardsAsync = ref.watch(dueFlashcardsStreamProvider);
+    final allCardsAsync = ref.watch(allActiveFlashcardsStreamProvider);
     final recentSessionsAsync = ref.watch(recentSessionsStreamProvider);
     final pendingSyncAsync = ref.watch(pendingSyncCountStreamProvider);
     final syncState = ref.watch(syncControllerProvider);
@@ -120,6 +158,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     final subjects = subjectsAsync.valueOrNull ?? const <SubjectEntity>[];
     final studySets = studySetsAsync.valueOrNull ?? const <StudySetEntity>[];
     final dueCards = dueCardsAsync.valueOrNull ?? const <FlashcardEntity>[];
+    final allCards = allCardsAsync.valueOrNull ?? const <FlashcardEntity>[];
     final sessions = recentSessionsAsync.valueOrNull ?? const <StudySessionEntity>[];
     final pendingSyncCount = pendingSyncAsync.valueOrNull ?? 0;
 
@@ -134,7 +173,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.primarySkyBlue.withOpacity(0.16),
+                    color: AppTheme.primarySkyBlue.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -356,6 +395,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       subjects: subjects,
                       studySets: studySets,
                       dueCards: dueCards,
+                      allCards: allCards,
                       pendingSyncCount: pendingSyncCount,
                     ),
                     _buildStudySetsTab(context, subjects: subjects, studySets: studySets),
@@ -380,6 +420,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     required List<SubjectEntity> subjects,
     required List<StudySetEntity> studySets,
     required List<FlashcardEntity> dueCards,
+    required List<FlashcardEntity> allCards,
     required int pendingSyncCount,
   }) {
     return SingleChildScrollView(
@@ -406,7 +447,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.18),
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
@@ -426,40 +467,128 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(
-                  'Bạn có ${dueCards.length} thẻ Flashcard đến hạn ôn tập hôm nay',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                if (dueCards.isNotEmpty) ...[
+                  Text(
+                    'Bạn có ${dueCards.length} thẻ Flashcard đến hạn ôn tập hôm nay',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Thuật toán lặp lại ngắt quãng SM-2 tự động ưu tiên các thẻ có hệ số dễ (Ease Factor) thấp để tối ưu hóa độ bền trí nhớ dài hạn.',
-                  style: TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.4),
-                ),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF0F172A),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Thuật toán lặp lại ngắt quãng SM-2 tự động ưu tiên các thẻ có hệ số dễ (Ease Factor) thấp để tối ưu hóa độ bền trí nhớ dài hạn.',
+                    style: TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.4),
                   ),
-                  onPressed: dueCards.isEmpty
-                      ? null
-                      : () {
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    children: [
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF0F172A),
+                        ),
+                        onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => FlashcardStudyScreen(
-                                title: 'Ôn tập Hàng ngày (SM-2 Queue)',
+                                title: 'Ôn tập Đến hạn (${dueCards.length} thẻ SM-2)',
                                 initialCards: dueCards,
                               ),
                             ),
                           );
                         },
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Text('Bắt đầu Lật thẻ 3D ngay'),
-                ),
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: Text('Ôn ${dueCards.length} thẻ đến hạn'),
+                      ),
+                      if (allCards.length > dueCards.length)
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white70),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => FlashcardStudyScreen(
+                                  title: 'Luyện tập Tự do (Tất cả ${allCards.length} thẻ)',
+                                  initialCards: allCards,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.all_inclusive_rounded),
+                          label: Text('Luyện tập tất cả (${allCards.length})'),
+                        ),
+                    ],
+                  ),
+                ] else if (allCards.isNotEmpty) ...[
+                  const Text(
+                    'Tuyệt vời! Không còn thẻ nào đến hạn hôm nay',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Bạn đã hoàn thành toàn bộ lịch ôn tập SM-2. Bạn có thể luyện tập tự do toàn bộ thẻ bất cứ lúc nào.',
+                    style: TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0F172A),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => FlashcardStudyScreen(
+                            title: 'Luyện tập Tự do (Tất cả ${allCards.length} thẻ)',
+                            initialCards: allCards,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: Text('Luyện tập tự do (${allCards.length} thẻ)'),
+                  ),
+                ] else ...[
+                  const Text(
+                    'Chào mừng bạn đến với NoteFlow AI!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Quét tài liệu học tập hoặc ảnh slide để bắt đầu sinh thẻ ghi nhớ SM-2 và bộ câu hỏi trắc nghiệm tự động.',
+                    style: TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0F172A),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => OcrAiPipelineScreen(subjects: subjects),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.document_scanner_rounded),
+                    label: const Text('Bắt đầu Quét tài liệu ngay'),
+                  ),
+                ],
               ],
             ),
           ),
@@ -481,46 +610,62 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          ...subjects.map((sub) {
-            final color = AppTheme.parseHexColor(sub.colorHex);
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                leading: CircleAvatar(
-                  backgroundColor: color.withOpacity(0.18),
-                  child: Text(
-                    sub.code.substring(0, sub.code.length.clamp(0, 2)),
-                    style: TextStyle(color: color, fontWeight: FontWeight.w800),
-                  ),
-                ),
-                title: Text(
-                  '${sub.code} • ${sub.title}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: Text(
-                  '${sub.documentCount} tài liệu • ${sub.dueFlashcardCount} thẻ cần ôn • ${sub.totalStudyMinutes} phút học',
-                  style: const TextStyle(fontSize: 12.5),
-                ),
-                trailing: IconButton(
-                  tooltip: 'Xóa mềm (Tombstone Soft-Delete)',
-                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                  onPressed: () async {
-                    await ref.read(studyRepositoryProvider).softDeleteSubject(sub.id);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Đã đánh dấu Tombstone (is_deleted=true) cho môn ${sub.code} và đẩy vào Sync Queue.',
-                          ),
-                        ),
-                      );
-                    }
-                  },
+          if (subjects.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+                child: Column(
+                  children: [
+                    const Icon(Icons.school_outlined, size: 48, color: Colors.grey),
+                    const SizedBox(height: 12),
+                    const Text('Chưa có học phần nào',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Thêm môn học đầu tiên để quản lý tài liệu và ôn tập flashcard theo từng môn học.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () => _showCreateSubjectDialog(context),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Thêm môn học mới'),
+                    ),
+                  ],
                 ),
               ),
-            );
-          }),
+            )
+          else
+            ...subjects.map((sub) {
+              final color = AppTheme.parseHexColor(sub.colorHex);
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  leading: CircleAvatar(
+                    backgroundColor: color.withValues(alpha: 0.18),
+                    child: Text(
+                      sub.code.substring(0, sub.code.length.clamp(0, 2)),
+                      style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  title: Text(
+                    '${sub.code} • ${sub.title}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    '${sub.documentCount} tài liệu • ${sub.dueFlashcardCount} thẻ cần ôn • ${sub.totalStudyMinutes} phút học',
+                    style: const TextStyle(fontSize: 12.5),
+                  ),
+                  trailing: IconButton(
+                    tooltip: 'Xóa mềm (Tombstone Soft-Delete)',
+                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                    onPressed: () => _confirmDeleteSubject(context, sub),
+                  ),
+                ),
+              );
+            }),
         ],
       ),
     );
@@ -531,6 +676,43 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     required List<SubjectEntity> subjects,
     required List<StudySetEntity> studySets,
   }) {
+    if (studySets.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.auto_stories_outlined, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text(
+                'Chưa có bộ học liệu AI nào',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Sử dụng camera hoặc tải ảnh tài liệu lên để Gemini 1.5 Flash tự động tạo tóm tắt, thẻ ghi nhớ và trắc nghiệm.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 13.5),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => OcrAiPipelineScreen(subjects: subjects),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.document_scanner_rounded),
+                label: const Text('Quét OCR & Tạo bộ học liệu'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
       itemCount: studySets.length,
@@ -697,7 +879,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
+        color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(

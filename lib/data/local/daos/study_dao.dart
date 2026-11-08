@@ -84,7 +84,7 @@ class StudyDao {
     });
   }
 
-  /// Danh sách các thẻ Flashcard cần ôn tập (next_review_at <= now), ưu tiên thẻ khó (ease_factor thấp)
+  /// Danh sách các thẻ Flashcard thực sự đến hạn ôn tập (next_review_at <= now), ưu tiên thẻ khó (ease_factor thấp)
   Stream<List<FlashcardEntity>> watchDueFlashcards() {
     return _db.customSelect(
       '''
@@ -96,9 +96,37 @@ class StudyDao {
     ).watch().map((rows) {
       final now = DateTime.now();
       final allCards = rows.map(_mapFlashcardRow).toList();
-      final due = allCards.where((c) => !c.nextReviewAt.isAfter(now)).toList();
-      return due.isNotEmpty ? due : allCards;
+      return allCards.where((c) => !c.nextReviewAt.isAfter(now)).toList();
     });
+  }
+
+  /// Toàn bộ các thẻ Flashcard đang hoạt động (dùng cho chế độ Luyện tập tự do)
+  Stream<List<FlashcardEntity>> watchAllActiveFlashcards() {
+    return _db.customSelect(
+      '''
+      SELECT * FROM flashcards
+      WHERE is_deleted = 0
+      ORDER BY next_review_at ASC, ease_factor ASC
+      ''',
+      readsFrom: {_db.flashcardsTable},
+    ).watch().map((rows) => rows.map(_mapFlashcardRow).toList());
+  }
+
+  /// Đánh dấu Tombstone Soft-Delete cho bộ học liệu
+  Future<void> tombstoneDeleteStudySet(String studySetId, DateTime updatedAt) async {
+    await _db.customUpdate(
+      '''
+      UPDATE study_sets
+      SET is_deleted = 1, updated_at = ?1
+      WHERE id = ?2
+      ''',
+      variables: [
+        Variable<int>(updatedAt.millisecondsSinceEpoch),
+        Variable<String>(studySetId),
+      ],
+      updates: {_db.studySetsTable},
+      updateKind: UpdateKind.update,
+    );
   }
 
   Stream<List<StudySessionEntity>> watchRecentSessions({int days = 7}) {

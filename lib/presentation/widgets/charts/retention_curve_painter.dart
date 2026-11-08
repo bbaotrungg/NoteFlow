@@ -165,7 +165,7 @@ class RetentionCurvePainter extends CustomPainter {
     }
 
     final Paint baselinePaint = Paint()
-      ..color = baselineDecayColor.withOpacity(0.55)
+      ..color = baselineDecayColor.withValues(alpha: 0.55)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
     canvas.drawPath(unreviewedPath, baselinePaint);
@@ -200,8 +200,8 @@ class RetentionCurvePainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          primaryLineColor.withOpacity(0.36),
-          primaryLineColor.withOpacity(0.02),
+          primaryLineColor.withValues(alpha: 0.36),
+          primaryLineColor.withValues(alpha: 0.02),
         ],
       ).createShader(Rect.fromLTWH(leftPad, topPad, chartWidth, chartHeight));
     canvas.drawPath(fillPath, fillPaint);

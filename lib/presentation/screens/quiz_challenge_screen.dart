@@ -10,7 +10,9 @@ import '../providers/app_providers.dart';
 
 /// Màn hình Thi trắc nghiệm bấm giờ (Quiz Challenge Engine)
 /// - Hiển thị thanh đếm ngược thời gian làm bài
+/// - Tự động tạm dừng đếm ngược khi học sinh đang đọc giải thích học thuật
 /// - Chấm điểm tức thì kèm lời giải thích học thuật chi tiết
+/// - Cho phép làm lại Quiz (Retry) ngay lập tức
 /// - Ghi nhận kết quả vào bảng study_sessions và hàng đợi đồng bộ Offline-First
 class QuizChallengeScreen extends ConsumerStatefulWidget {
   final String studySetId;
@@ -50,8 +52,11 @@ class _QuizChallengeScreenState extends ConsumerState<QuizChallengeScreen> {
   }
 
   void _startTimer() {
+    _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted || _isFinished) return;
+      // Tạm dừng đếm ngược thời gian làm bài khi học sinh đang đọc phần giải thích đáp án
+      if (_isAnswered) return;
       setState(() {
         _elapsedSeconds++;
         if (_remainingSeconds > 0) {
@@ -115,6 +120,19 @@ class _QuizChallengeScreenState extends ConsumerState<QuizChallengeScreen> {
         );
   }
 
+  void _retryQuiz() {
+    setState(() {
+      _currentIndex = 0;
+      _selectedOptionIndex = null;
+      _isAnswered = false;
+      _correctCount = 0;
+      _isFinished = false;
+      _elapsedSeconds = 0;
+      _remainingSeconds = _quizList.length * _secondsPerQuestion;
+    });
+    _startTimer();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -130,7 +148,7 @@ class _QuizChallengeScreenState extends ConsumerState<QuizChallengeScreen> {
                   color: (_remainingSeconds < 30
                           ? AppTheme.roseDanger
                           : AppTheme.primarySkyBlue)
-                      .withOpacity(0.16),
+                      .withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
@@ -161,15 +179,15 @@ class _QuizChallengeScreenState extends ConsumerState<QuizChallengeScreen> {
       ),
       body: SafeArea(
         child: _quizList.isEmpty
-            ? const Center(child: Text('Không có câu hỏi trắc nghiệm nào.'))
+            ? const Center(child: Text('Bộ học liệu này chưa có câu hỏi trắc nghiệm.'))
             : _isFinished
                 ? _buildQuizResultView(context)
-                : _buildActiveQuestionView(context),
+                : _buildActiveQuizView(context),
       ),
     );
   }
 
-  Widget _buildActiveQuestionView(BuildContext context) {
+  Widget _buildActiveQuizView(BuildContext context) {
     final q = _quizList[_currentIndex];
     final progress = (_currentIndex + 1) / _quizList.length;
 
@@ -178,33 +196,36 @@ class _QuizChallengeScreenState extends ConsumerState<QuizChallengeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Header Tiến trình & Điểm số
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Câu hỏi ${_currentIndex + 1} / ${_quizList.length}',
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
               ),
               Text(
                 'Đúng: $_correctCount câu',
                 style: const TextStyle(
-                  fontWeight: FontWeight.w700,
                   color: AppTheme.emeraldAccent,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 8,
-              backgroundColor: AppTheme.primarySkyBlue.withOpacity(0.15),
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primarySkyBlue),
+              backgroundColor: AppTheme.primarySkyBlue.withValues(alpha: 0.18),
+              valueColor: const AlwaysStoppedAnimation(AppTheme.primarySkyBlue),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
+
+          // Nội dung câu hỏi
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -213,58 +234,64 @@ class _QuizChallengeScreenState extends ConsumerState<QuizChallengeScreen> {
                 style: const TextStyle(
                   fontSize: 17.5,
                   fontWeight: FontWeight.w700,
-                  height: 1.45,
+                  height: 1.4,
                 ),
               ),
             ),
           ),
           const SizedBox(height: 16),
+
+          // 4 Phương án trả lời A, B, C, D
           ...List.generate(q.options.length, (idx) {
-            final isSelected = _selectedOptionIndex == idx;
+            final isChosen = _selectedOptionIndex == idx;
             final isCorrectOption = idx == q.correctIndex;
 
-            Color borderColor = Colors.grey.withOpacity(0.35);
-            Color bgColor = Colors.transparent;
+            Color borderColor = Colors.grey.withValues(alpha: 0.3);
+            Color backgroundColor = Colors.transparent;
             IconData? trailingIcon;
 
             if (_isAnswered) {
               if (isCorrectOption) {
                 borderColor = AppTheme.emeraldAccent;
-                bgColor = AppTheme.emeraldAccent.withOpacity(0.14);
+                backgroundColor = AppTheme.emeraldAccent.withValues(alpha: 0.16);
                 trailingIcon = Icons.check_circle_rounded;
-              } else if (isSelected) {
+              } else if (isChosen && !isCorrectOption) {
                 borderColor = AppTheme.roseDanger;
-                bgColor = AppTheme.roseDanger.withOpacity(0.14);
+                backgroundColor = AppTheme.roseDanger.withValues(alpha: 0.16);
                 trailingIcon = Icons.cancel_rounded;
               }
-            } else if (isSelected) {
+            } else if (isChosen) {
               borderColor = AppTheme.primarySkyBlue;
-              bgColor = AppTheme.primarySkyBlue.withOpacity(0.12);
+              backgroundColor = AppTheme.primarySkyBlue.withValues(alpha: 0.14);
             }
-
-            final prefixLetter = String.fromCharCode(65 + idx);
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: () => _selectOption(idx),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                   decoration: BoxDecoration(
-                    color: bgColor,
+                    color: backgroundColor,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: borderColor, width: 1.6),
                   ),
                   child: Row(
                     children: [
                       CircleAvatar(
-                        radius: 15,
-                        backgroundColor: borderColor.withOpacity(0.25),
+                        radius: 14,
+                        backgroundColor: (isChosen
+                                ? AppTheme.primarySkyBlue
+                                : Colors.grey)
+                            .withValues(alpha: 0.2),
                         child: Text(
-                          prefixLetter,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                          String.fromCharCode(65 + idx),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: isChosen ? AppTheme.primarySkyBlue : null,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -292,9 +319,9 @@ class _QuizChallengeScreenState extends ConsumerState<QuizChallengeScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.primarySkyBlue.withOpacity(0.12),
+                color: AppTheme.primarySkyBlue.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.primarySkyBlue.withOpacity(0.4)),
+                border: Border.all(color: AppTheme.primarySkyBlue.withValues(alpha: 0.4)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,10 +396,22 @@ class _QuizChallengeScreenState extends ConsumerState<QuizChallengeScreen> {
                   style: const TextStyle(fontSize: 15),
                 ),
                 const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.done_all_rounded),
-                  label: const Text('Hoàn tất bài kiểm tra'),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _retryQuiz,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Làm lại Quiz'),
+                    ),
+                    FilledButton.icon(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.done_all_rounded),
+                      label: const Text('Hoàn tất bài kiểm tra'),
+                    ),
+                  ],
                 ),
               ],
             ),
