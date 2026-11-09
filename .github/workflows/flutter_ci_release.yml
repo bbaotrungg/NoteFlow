@@ -20,6 +20,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Setup Flutter 3.22+ (Dart 3)
         uses: subosito/flutter-action@v2
@@ -38,10 +39,23 @@ jobs:
 
       - name: Build Production APK
         run: |
-          flutter build apk --release \
-            --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
-            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
-            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          for i in 1 2 3; do
+            echo "Attempt $i: Building Production APK..."
+            if flutter build apk --release \
+              --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
+              --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+              --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}; then
+              echo "Build succeeded on attempt $i"
+              break
+            fi
+            if [ $i -lt 3 ]; then
+              echo "Build failed on attempt $i. Retrying in 15 seconds..."
+              sleep 15
+            else
+              echo "Build failed after 3 attempts."
+              exit 1
+            fi
+          done
           cp build/app/outputs/flutter-apk/*.apk build/app/outputs/flutter-apk/NoteFlow-AI-v1.0.0.apk || true
 
       - name: Upload Release APK Artifact
