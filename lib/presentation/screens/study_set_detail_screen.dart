@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/date_time_utils.dart';
 import '../../domain/entities/study_set_entity.dart';
+import '../../domain/entities/weakness_analysis_result.dart';
 import '../providers/app_providers.dart';
+import 'ai_study_assistant_screen.dart';
 import 'flashcard_study_screen.dart';
 import 'quiz_challenge_screen.dart';
 
@@ -20,7 +22,8 @@ class StudySetDetailScreen extends ConsumerWidget {
     required this.studySetId,
   });
 
-  Future<void> _confirmDeleteStudySet(BuildContext context, WidgetRef ref, StudySetEntity studySet) async {
+  Future<void> _confirmDeleteStudySet(
+      BuildContext context, WidgetRef ref, StudySetEntity studySet) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -79,12 +82,15 @@ class StudySetDetailScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.inventory_2_outlined, size: 54, color: Colors.grey),
+                    const Icon(Icons.inventory_2_outlined,
+                        size: 54, color: Colors.grey),
                     const SizedBox(height: 12),
                     const Text('Không tìm thấy bộ học liệu này',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 6),
-                    const Text('Bộ học liệu có thể đã bị xóa hoặc chưa được đồng bộ.',
+                    const Text(
+                        'Bộ học liệu có thể đã bị xóa hoặc chưa được đồng bộ.',
                         style: TextStyle(color: Colors.grey, fontSize: 13)),
                     const SizedBox(height: 16),
                     FilledButton(
@@ -114,9 +120,11 @@ class StudySetDetailScreen extends ConsumerWidget {
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete_outline_rounded, color: AppTheme.roseDanger, size: 20),
+                        Icon(Icons.delete_outline_rounded,
+                            color: AppTheme.roseDanger, size: 20),
                         SizedBox(width: 8),
-                        Text('Xóa bộ học liệu', style: TextStyle(color: AppTheme.roseDanger)),
+                        Text('Xóa bộ học liệu',
+                            style: TextStyle(color: AppTheme.roseDanger)),
                       ],
                     ),
                   ),
@@ -124,19 +132,27 @@ class StudySetDetailScreen extends ConsumerWidget {
               ),
             ],
           ),
-          body: _buildContent(context, studySet),
+          body: _buildContent(context, ref, studySet),
         );
       },
     );
   }
 
-  Widget _buildContent(BuildContext context, StudySetEntity studySet) {
+  Widget _buildContent(
+      BuildContext context, WidgetRef ref, StudySetEntity studySet) {
+    final weaknessAnalysis = ref.watch(weaknessAnalysisProvider);
+    final topicWeakness =
+        weaknessAnalysis.topics.cast<TopicWeaknessEntity?>().firstWhere(
+              (t) => t?.studySetId == studySet.id,
+              orElse: () => null,
+            );
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header Card với 2 nút hành động nhanh: Ôn Flashcards 3D & Thi Quiz bấm giờ
+          // Header Card với các nút hành động nhanh: Ôn Flashcards 3D, Thi Quiz bấm giờ & Trợ lý AI
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -145,7 +161,8 @@ class StudySetDetailScreen extends ConsumerWidget {
                 children: [
                   Text(
                     studySet.title,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -174,10 +191,12 @@ class StudySetDetailScreen extends ConsumerWidget {
                                 );
                               },
                         icon: const Icon(Icons.style_rounded),
-                        label: Text('Ôn tập 3D Flashcards (${studySet.flashcards.length})'),
+                        label: Text(
+                            'Ôn tập 3D Flashcards (${studySet.flashcards.length})'),
                       ),
                       FilledButton.icon(
-                        style: FilledButton.styleFrom(backgroundColor: AppTheme.emeraldAccent),
+                        style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.emeraldAccent),
                         onPressed: studySet.quizQuestions.isEmpty
                             ? null
                             : () {
@@ -192,7 +211,24 @@ class StudySetDetailScreen extends ConsumerWidget {
                                 );
                               },
                         icon: const Icon(Icons.quiz_rounded),
-                        label: Text('Thi Trắc nghiệm Bấm giờ (${studySet.quizQuestions.length})'),
+                        label: Text(
+                            'Thi Trắc nghiệm Bấm giờ (${studySet.quizQuestions.length})'),
+                      ),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.primarySkyBlue,
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AiStudyAssistantScreen(
+                                initialStudySet: studySet,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.auto_awesome_rounded),
+                        label: const Text('Hỏi đáp Trợ lý AI'),
                       ),
                     ],
                   ),
@@ -201,6 +237,65 @@ class StudySetDetailScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
+
+          // Banner Chẩn đoán Điểm yếu (Smart Weakness Insights) nếu có
+          if (topicWeakness != null && topicWeakness.needsAttention) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: (topicWeakness.isWeak
+                        ? AppTheme.roseDanger
+                        : AppTheme.amberWarning)
+                    .withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: (topicWeakness.isWeak
+                          ? AppTheme.roseDanger
+                          : AppTheme.amberWarning)
+                      .withValues(alpha: 0.35),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    topicWeakness.isWeak
+                        ? Icons.warning_amber_rounded
+                        : Icons.info_outline_rounded,
+                    color: topicWeakness.isWeak
+                        ? AppTheme.roseDanger
+                        : AppTheme.amberWarning,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Chẩn đoán năng lực: ${topicWeakness.masteryLevel.label} (${topicWeakness.masteryScore}% thông thạo)',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: topicWeakness.isWeak
+                                ? AppTheme.roseDanger
+                                : AppTheme.amberWarning,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          topicWeakness.recommendations.isNotEmpty
+                              ? topicWeakness.recommendations.first
+                              : 'Có ${topicWeakness.weakCardsCount} thẻ ghi nhớ có độ khó cao cần củng cố.',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // Bản tóm tắt học thuật Markdown
           Card(
@@ -211,11 +306,13 @@ class StudySetDetailScreen extends ConsumerWidget {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.auto_stories_rounded, color: AppTheme.primarySkyBlue),
+                      Icon(Icons.auto_stories_rounded,
+                          color: AppTheme.primarySkyBlue),
                       SizedBox(width: 8),
                       Text(
                         'Bản Tóm Tắt Học Thuật (Markdown)',
-                        style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                            fontSize: 16.5, fontWeight: FontWeight.w800),
                       ),
                     ],
                   ),
@@ -239,7 +336,8 @@ class StudySetDetailScreen extends ConsumerWidget {
                 children: [
                   const Text(
                     'Danh sách Thẻ nhớ & Lịch trình SuperMemo SM-2',
-                    style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800),
+                    style:
+                        TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 12),
                   ...studySet.flashcards.map((card) {
@@ -262,8 +360,8 @@ class StudySetDetailScreen extends ConsumerWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: (isDue
                                           ? AppTheme.amberWarning
@@ -272,7 +370,8 @@ class StudySetDetailScreen extends ConsumerWidget {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
-                                  DateTimeUtils.formatRelativeReview(card.nextReviewAt),
+                                  DateTimeUtils.formatRelativeReview(
+                                      card.nextReviewAt),
                                   style: TextStyle(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w700,
@@ -283,20 +382,28 @@ class StudySetDetailScreen extends ConsumerWidget {
                                 ),
                               ),
                               Text(
-                                'EF: ${card.easeFactor.toStringAsFixed(2)} • I: ${card.intervalDays}d • n=${card.repetitionCount}',
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                'EF: ${card.easeFactor.toStringAsFixed(2)} • ${card.intervalDays} ngày • Lặp: ${card.repetitionCount}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
                           Text(
                             card.frontText,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700, fontSize: 14.5),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             card.backText,
-                            style: const TextStyle(fontSize: 13.5, height: 1.35),
+                            style:
+                                const TextStyle(fontSize: 13.5, height: 1.35),
                           ),
                         ],
                       ),

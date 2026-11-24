@@ -20,10 +20,12 @@ class _TableHandle extends Table with TableInfo<Table, dynamic> {
   String get aliasedName => actualTableName;
 
   @override
-  TableInfo<Table, dynamic> createAlias(String alias) => _TableHandle(_db, alias);
+  TableInfo<Table, dynamic> createAlias(String alias) =>
+      _TableHandle(_db, alias);
 
   @override
-  Future<dynamic> map(Map<String, dynamic> data, {String? tablePrefix}) async => data;
+  Future<dynamic> map(Map<String, dynamic> data, {String? tablePrefix}) async =>
+      data;
 
   @override
   Set<GeneratedColumn> get $primaryKey => const {};
@@ -32,13 +34,20 @@ class _TableHandle extends Table with TableInfo<Table, dynamic> {
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(super.e);
 
-  late final TableInfo<Table, dynamic> subjectsTable = _TableHandle(this, 'subjects');
-  late final TableInfo<Table, dynamic> documentsTable = _TableHandle(this, 'documents');
-  late final TableInfo<Table, dynamic> studySetsTable = _TableHandle(this, 'study_sets');
-  late final TableInfo<Table, dynamic> flashcardsTable = _TableHandle(this, 'flashcards');
-  late final TableInfo<Table, dynamic> quizQuestionsTable = _TableHandle(this, 'quiz_questions');
-  late final TableInfo<Table, dynamic> studySessionsTable = _TableHandle(this, 'study_sessions');
-  late final TableInfo<Table, dynamic> syncQueueTable = _TableHandle(this, 'sync_queue');
+  late final TableInfo<Table, dynamic> subjectsTable =
+      _TableHandle(this, 'subjects');
+  late final TableInfo<Table, dynamic> documentsTable =
+      _TableHandle(this, 'documents');
+  late final TableInfo<Table, dynamic> studySetsTable =
+      _TableHandle(this, 'study_sets');
+  late final TableInfo<Table, dynamic> flashcardsTable =
+      _TableHandle(this, 'flashcards');
+  late final TableInfo<Table, dynamic> quizQuestionsTable =
+      _TableHandle(this, 'quiz_questions');
+  late final TableInfo<Table, dynamic> studySessionsTable =
+      _TableHandle(this, 'study_sessions');
+  late final TableInfo<Table, dynamic> syncQueueTable =
+      _TableHandle(this, 'sync_queue');
 
   @override
   Iterable<TableInfo<Table, Object?>> get allTables => [

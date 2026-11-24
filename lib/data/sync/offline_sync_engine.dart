@@ -7,6 +7,7 @@ import '../../core/constants/app_constants.dart';
 import '../../domain/entities/document_entity.dart';
 import '../../domain/entities/flashcard_entity.dart';
 import '../../domain/entities/quiz_question_entity.dart';
+import '../../domain/entities/study_session_entity.dart';
 import '../../domain/entities/study_set_entity.dart';
 import '../../domain/entities/subject_entity.dart';
 import '../../domain/entities/sync_queue_item_entity.dart';
@@ -57,34 +58,52 @@ class OfflineSyncEngine {
     return !localUpdatedAt.toUtc().isBefore(remoteUpdatedAt.toUtc());
   }
 
+  bool _isSyncRunning = false;
+
+  /// Cho biết một tiến trình đồng bộ hai chiều đang thực thi
+  bool get isSyncRunning => _isSyncRunning;
+
   /// Thực thi chu trình đồng bộ hai chiều (Push Outbox Queue -> Pull Remote Changes với LWW)
   /// Trả về tổng số bản ghi đã đồng bộ thành công.
   Future<int> runBidirectionalSync() async {
-    final online = await isOnline();
-    if (!online) {
+    // Ngăn chặn xung đột xử lý trùng lặp khi có 2 luồng gọi đồng bộ cùng lúc
+    if (_isSyncRunning) {
       return 0;
     }
+    _isSyncRunning = true;
 
-    final pendingItems = await _db.syncDao.getPendingSyncItems(limit: 100);
-    int syncedCount = 0;
-
-    for (final item in pendingItems) {
-      await _db.syncDao.markAsSyncing(item.id);
-      try {
-        await _pushSingleQueueItemWithLww(item);
-        await _db.syncDao.removeCompletedSyncItem(item.id);
-        syncedCount++;
-      } catch (_) {
-        await _db.syncDao.markAsFailed(item.id);
+    try {
+      final online = await isOnline();
+      if (!online) {
+        return 0;
       }
-    }
 
-    // Bước 2: Pull các bản ghi mới hơn từ Supabase về Local SQLite theo nguyên tắc LWW
-    if (_supabaseClient != null && _isSupabaseConfigured) {
-      await _pullRemoteUpdatesWithLww();
-    }
+      // Khôi phục mọi bản ghi bị kẹt ở trạng thái SYNCING do ngắt kết nối đột ngột
+      await _db.syncDao.recoverOrphanedSyncingItems();
 
-    return syncedCount;
+      final pendingItems = await _db.syncDao.getPendingSyncItems(limit: 100);
+      int syncedCount = 0;
+
+      for (final item in pendingItems) {
+        await _db.syncDao.markAsSyncing(item.id);
+        try {
+          await _pushSingleQueueItemWithLww(item);
+          await _db.syncDao.removeCompletedSyncItem(item.id);
+          syncedCount++;
+        } catch (_) {
+          await _db.syncDao.markAsFailed(item.id);
+        }
+      }
+
+      // Bước 2: Pull các bản ghi mới hơn từ Supabase về Local SQLite theo nguyên tắc LWW
+      if (_supabaseClient != null && _isSupabaseConfigured) {
+        await _pullRemoteUpdatesWithLww();
+      }
+
+      return syncedCount;
+    } finally {
+      _isSyncRunning = false;
+    }
   }
 
   bool get _isSupabaseConfigured =>
@@ -106,7 +125,16 @@ class OfflineSyncEngine {
     final client = _supabaseClient;
     final payload = jsonDecode(item.payloadJson) as Map<String, dynamic>;
     if (client.auth.currentUser != null) {
-      payload['user_id'] = client.auth.currentUser!.id;
+      final activeUserId = client.auth.currentUser!.id;
+      // SEC-02: Prevent cross-user attribution: verify payload owner matches current user if present
+      if (payload.containsKey('user_id') &&
+          payload['user_id'] != null &&
+          payload['user_id'] != activeUserId) {
+        throw StateError(
+          'Security Violation: Attempted to synchronize item owned by user ${payload['user_id']} under session of user $activeUserId',
+        );
+      }
+      payload['user_id'] = activeUserId;
     }
     final recordId = item.recordId;
 
@@ -117,9 +145,18 @@ class OfflineSyncEngine {
         .eq('id', recordId)
         .maybeSingle();
 
-    if (existingRemote != null && existingRemote['updated_at'] != null && payload['updated_at'] != null) {
-      final localUpdatedAt = DateTime.parse(payload['updated_at'] as String).toUtc();
-      final remoteUpdatedAt = DateTime.parse(existingRemote['updated_at'] as String).toUtc();
+    final localTimeStr =
+        (payload['updated_at'] ?? payload['completed_at']) as String?;
+    final remoteTimeStr = existingRemote != null
+        ? ((existingRemote['updated_at'] ?? existingRemote['completed_at'])
+            as String?)
+        : null;
+
+    if (existingRemote != null &&
+        remoteTimeStr != null &&
+        localTimeStr != null) {
+      final localUpdatedAt = DateTime.parse(localTimeStr).toUtc();
+      final remoteUpdatedAt = DateTime.parse(remoteTimeStr).toUtc();
 
       final localWins = shouldLocalWinConflict(
         localUpdatedAt: localUpdatedAt,
@@ -147,6 +184,7 @@ class OfflineSyncEngine {
       'study_sets',
       'flashcards',
       'quiz_questions',
+      'study_sessions',
     ];
 
     for (final table in syncedTables) {
@@ -157,9 +195,13 @@ class OfflineSyncEngine {
     }
   }
 
-  Future<void> _reconcileRemoteRow(String tableName, Map<String, dynamic> remoteJson) async {
+  Future<void> _reconcileRemoteRow(
+      String tableName, Map<String, dynamic> remoteJson) async {
     final id = remoteJson['id'] as String;
-    final remoteUpdatedAt = DateTime.parse(remoteJson['updated_at'] as String).toLocal();
+    final timeStr =
+        (remoteJson['updated_at'] ?? remoteJson['completed_at']) as String?;
+    final remoteUpdatedAt =
+        timeStr != null ? DateTime.parse(timeStr).toLocal() : DateTime.now();
 
     DateTime? localUpdatedAt;
     if (tableName == 'subjects') {
@@ -177,15 +219,20 @@ class OfflineSyncEngine {
     } else if (tableName == 'quiz_questions') {
       final local = await _db.studyDao.getQuizQuestionById(id);
       localUpdatedAt = local?.updatedAt;
+    } else if (tableName == 'study_sessions') {
+      final local = await _db.studyDao.getStudySessionById(id);
+      localUpdatedAt = local?.completedAt;
     }
 
     if (localUpdatedAt == null ||
-        !shouldLocalWinConflict(localUpdatedAt: localUpdatedAt, remoteUpdatedAt: remoteUpdatedAt)) {
+        !shouldLocalWinConflict(
+            localUpdatedAt: localUpdatedAt, remoteUpdatedAt: remoteUpdatedAt)) {
       await _applyRemoteRecordToLocal(tableName, remoteJson);
     }
   }
 
-  Future<void> _applyRemoteRecordToLocal(String tableName, Map<String, dynamic> remoteJson) async {
+  Future<void> _applyRemoteRecordToLocal(
+      String tableName, Map<String, dynamic> remoteJson) async {
     switch (tableName) {
       case 'subjects':
         final entity = SubjectEntity.fromSyncJson(remoteJson);
@@ -251,6 +298,18 @@ class OfflineSyncEngine {
           timesCorrect: entity.timesCorrect,
           updatedAt: entity.updatedAt,
           isDeleted: entity.isDeleted,
+        );
+        break;
+      case 'study_sessions':
+        final entity = StudySessionEntity.fromSyncJson(remoteJson);
+        await _db.studyDao.insertStudySessionRaw(
+          id: entity.id,
+          studySetId: entity.studySetId,
+          sessionType: entity.sessionType.dbValue,
+          score: entity.score,
+          totalItems: entity.totalItems,
+          durationSeconds: entity.durationSeconds,
+          completedAt: entity.completedAt,
         );
         break;
     }

@@ -11,6 +11,9 @@ import 'presentation/screens/home_dashboard_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Kiểm soát an toàn môi trường phát hành: Chặn chạy Release build nếu có nhúng API Key trực tiếp
+  AppConstants.enforceReleaseSafety();
+
   // Khởi tạo Supabase BaaS an toàn tuyệt đối, không bao giờ để crash app
   try {
     if (AppConstants.supabaseUrl.isNotEmpty &&
@@ -23,7 +26,8 @@ Future<void> main() async {
       AppConstants.isSupabaseInitialized = true;
     }
   } catch (e) {
-    debugPrint('Supabase initialization skipped (Offline-First mode active): $e');
+    debugPrint(
+        'Supabase initialization skipped (Offline-First mode active): $e');
   }
 
   runApp(

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../entities/flashcard_entity.dart';
 
 /// Mức đánh giá cử chỉ vuốt thẻ (Swipe Gesture Rating) ánh xạ vào thang điểm q (0..5) của SuperMemo SM-2
@@ -69,7 +71,8 @@ class Sm2SpacedRepetitionService {
     required int currentRepetitionCount,
     DateTime? evaluatedAt,
   }) {
-    assert(quality >= 0 && quality <= 5, 'Quality q phải nằm trong khoảng [0, 5]');
+    assert(
+        quality >= 0 && quality <= 5, 'Quality q phải nằm trong khoảng [0, 5]');
     final now = evaluatedAt ?? DateTime.now();
 
     // Bước 1: Tính toán Ease Factor mới theo công thức gốc của Piotr Wozniak
@@ -149,25 +152,15 @@ class Sm2SpacedRepetitionService {
     if (daysElapsed <= 0) return 1.0;
     // Độ bền trí nhớ cơ sở S: khi mới học (interval=0) là 2.5 ngày,
     // tăng dần theo cấp số nhân với intervalDays và easeFactor
-    final double effectiveInterval = intervalDays <= 0 ? 1.5 : intervalDays.toDouble();
-    final double stabilityFactor = effectiveInterval * (easeFactor / 2.2) * (1.0 + repetitionCount * 0.25);
+    final double effectiveInterval =
+        intervalDays <= 0 ? 1.5 : intervalDays.toDouble();
+    final double stabilityFactor =
+        effectiveInterval * (easeFactor / 2.2) * (1.0 + repetitionCount * 0.25);
 
     // Tại thời điểm t = intervalDays, xác suất nhớ tiêu chuẩn đạt ~90% (R = e^(-t/S))
     // => S = -interval / ln(0.9) ≈ interval / 0.10536
     final double memoryStability = stabilityFactor / 0.12;
-    final double retention = _expApprox(-daysElapsed / memoryStability);
+    final double retention = math.exp(-daysElapsed / memoryStability);
     return retention.clamp(0.05, 1.0);
-  }
-
-  double _expApprox(double x) {
-    // Sử dụng chuỗi Taylor kết hợp giới hạn hoặc dart:math exp
-    // Để chính xác tuyệt đối, tính theo hằng số e = 2.718281828459045
-    double sum = 1.0;
-    double term = 1.0;
-    for (int i = 1; i <= 25; i++) {
-      term *= x / i;
-      sum += term;
-    }
-    return sum < 0 ? 0.0 : sum;
   }
 }

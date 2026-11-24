@@ -22,7 +22,8 @@ class OcrAiPipelineScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<OcrAiPipelineScreen> createState() => _OcrAiPipelineScreenState();
+  ConsumerState<OcrAiPipelineScreen> createState() =>
+      _OcrAiPipelineScreenState();
 }
 
 class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
@@ -67,41 +68,66 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
           builder: (ctx, setDialogState) {
             return AlertDialog(
               title: const Text('Thêm Môn Học Mới'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: codeCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Mã học phần (VD: IT4409)',
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: codeCtrl,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Mã học phần (VD: IT4409)',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên học phần',
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: titleCtrl,
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        labelText: 'Tên học phần',
+                        prefixIcon: Icon(Icons.school_outlined),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 10,
-                    children: palette.map((hex) {
-                      final color = AppTheme.parseHexColor(hex);
-                      final isChosen = hex == selectedColor;
-                      return GestureDetector(
-                        onTap: () => setDialogState(() => selectedColor = hex),
-                        child: CircleAvatar(
-                          radius: 16,
-                          backgroundColor: color,
-                          child: isChosen
-                              ? const Icon(Icons.check, color: Colors.white, size: 18)
-                              : null,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Chọn màu chủ đạo:',
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: palette.map((hex) {
+                        final color = AppTheme.parseHexColor(hex);
+                        final isChosen = hex == selectedColor;
+                        return Semantics(
+                          button: true,
+                          selected: isChosen,
+                          label: 'Màu $hex',
+                          child: InkResponse(
+                            radius: 24,
+                            onTap: () =>
+                                setDialogState(() => selectedColor = hex),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: CircleAvatar(
+                                radius: 18,
+                                backgroundColor: color,
+                                child: isChosen
+                                    ? const Icon(Icons.check_rounded,
+                                        color: Colors.white, size: 20)
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -110,12 +136,16 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                 ),
                 FilledButton(
                   onPressed: () async {
-                    if (titleCtrl.text.trim().isEmpty || codeCtrl.text.trim().isEmpty) return;
-                    final created = await ref.read(studyRepositoryProvider).createSubject(
-                          title: titleCtrl.text.trim(),
-                          code: codeCtrl.text.trim(),
-                          colorHex: selectedColor,
-                        );
+                    if (titleCtrl.text.trim().isEmpty ||
+                        codeCtrl.text.trim().isEmpty) {
+                      return;
+                    }
+                    final created =
+                        await ref.read(studyRepositoryProvider).createSubject(
+                              title: titleCtrl.text.trim(),
+                              code: codeCtrl.text.trim(),
+                              colorHex: selectedColor,
+                            );
                     if (mounted) {
                       setState(() {
                         _availableSubjects.add(created);
@@ -135,7 +165,9 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
   }
 
   Future<void> _handleScanImage(ImageSource source) async {
-    await ref.read(documentPipelineProvider.notifier).scanAndExtractText(source);
+    await ref
+        .read(documentPipelineProvider.notifier)
+        .scanAndExtractText(source);
     final ocrResult = ref.read(documentPipelineProvider).ocrResult;
     if (ocrResult != null) {
       setState(() {
@@ -145,7 +177,9 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
   }
 
   void _handleLoadMultiColumnSimulation() {
-    ref.read(documentPipelineProvider.notifier).loadSampleMultiColumnLectureForOcrDemo();
+    ref
+        .read(documentPipelineProvider.notifier)
+        .loadSampleMultiColumnLectureForOcrDemo();
     final ocrResult = ref.read(documentPipelineProvider).ocrResult;
     if (ocrResult != null) {
       setState(() {
@@ -157,7 +191,9 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
   Future<void> _handleGenerateWithGemini() async {
     if (_ocrTextController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng quét ảnh OCR hoặc nhập văn bản bài giảng trước!')),
+        const SnackBar(
+            content: Text(
+                'Vui lòng quét ảnh OCR hoặc nhập văn bản bài giảng trước!')),
       );
       return;
     }
@@ -225,11 +261,16 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
             ),
             FilledButton(
               onPressed: () {
-                if (frontCtrl.text.trim().isEmpty || backCtrl.text.trim().isEmpty) return;
+                if (frontCtrl.text.trim().isEmpty ||
+                    backCtrl.text.trim().isEmpty) {
+                  return;
+                }
                 final updated = AiGeneratedFlashcardDraft(
                   front: frontCtrl.text.trim(),
                   back: backCtrl.text.trim(),
-                  hint: hintCtrl.text.trim().isEmpty ? null : hintCtrl.text.trim(),
+                  hint: hintCtrl.text.trim().isEmpty
+                      ? null
+                      : hintCtrl.text.trim(),
                 );
                 setState(() {
                   if (isNew) {
@@ -254,11 +295,14 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
     final questionCtrl = TextEditingController(text: existing?.question ?? '');
     final optionCtrls = List.generate(4, (i) {
       return TextEditingController(
-        text: existing != null && i < existing.options.length ? existing.options[i] : '',
+        text: existing != null && i < existing.options.length
+            ? existing.options[i]
+            : '',
       );
     });
     int correctIndex = existing?.correctIndex ?? 0;
-    final explanationCtrl = TextEditingController(text: existing?.explanation ?? '');
+    final explanationCtrl =
+        TextEditingController(text: existing?.explanation ?? '');
 
     await showDialog<void>(
       context: context,
@@ -266,7 +310,8 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             return AlertDialog(
-              title: Text(isNew ? 'Thêm Câu Hỏi Quiz' : 'Chỉnh Sửa Câu Hỏi Quiz'),
+              title:
+                  Text(isNew ? 'Thêm Câu Hỏi Quiz' : 'Chỉnh Sửa Câu Hỏi Quiz'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -280,8 +325,10 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                       maxLines: 2,
                     ),
                     const SizedBox(height: 14),
-                    const Text('4 Phương án trả lời (Chọn radio để đặt đáp án đúng):',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const Text(
+                        '4 Phương án trả lời (Chọn radio để đặt đáp án đúng):',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
                     const SizedBox(height: 6),
                     ...List.generate(4, (optIdx) {
                       return Row(
@@ -302,7 +349,8 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                             child: TextField(
                               controller: optionCtrls[optIdx],
                               decoration: InputDecoration(
-                                hintText: 'Lựa chọn ${String.fromCharCode(65 + optIdx)}',
+                                hintText:
+                                    'Lựa chọn ${String.fromCharCode(65 + optIdx)}',
                                 isDense: true,
                               ),
                             ),
@@ -329,8 +377,11 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                 FilledButton(
                   onPressed: () {
                     final qText = questionCtrl.text.trim();
-                    final options = optionCtrls.map((c) => c.text.trim()).toList();
-                    if (qText.isEmpty || options.any((o) => o.isEmpty)) return;
+                    final options =
+                        optionCtrls.map((c) => c.text.trim()).toList();
+                    if (qText.isEmpty || options.any((o) => o.isEmpty)) {
+                      return;
+                    }
                     final updated = AiGeneratedQuizDraft(
                       question: qText,
                       options: options,
@@ -364,7 +415,8 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: AppTheme.roseDanger,
-          content: Text('Vui lòng chọn hoặc thêm một môn học trước khi lưu bộ học liệu!'),
+          content: Text(
+              'Vui lòng chọn hoặc thêm một môn học trước khi lưu bộ học liệu!'),
         ),
       );
       return;
@@ -386,7 +438,9 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
       quiz: _editableQuizzes,
     );
 
-    final saved = await ref.read(documentPipelineProvider.notifier).commitVerifiedStudySet(
+    final saved = await ref
+        .read(documentPipelineProvider.notifier)
+        .commitVerifiedStudySet(
           subjectId: subjectId,
           documentTitle: _titleController.text.trim(),
           rawExtractedText: _ocrTextController.text.trim(),
@@ -397,16 +451,63 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: AppTheme.emeraldAccent,
-          content: Text('Đã lưu Bộ học liệu vào SQLite và đưa vào hàng đợi đồng bộ Offline-First!'),
+          content: Text(
+              'Đã lưu Bộ học liệu vào SQLite và đưa vào hàng đợi đồng bộ Offline-First!'),
         ),
       );
       Navigator.of(context).pop();
     }
   }
 
+  Widget _buildStepIndicator({
+    required int stepNumber,
+    required String label,
+    required bool isActive,
+    required bool isCompleted,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircleAvatar(
+          radius: 14,
+          backgroundColor: isCompleted
+              ? AppTheme.emeraldAccent
+              : (isActive
+                  ? AppTheme.primarySkyBlue
+                  : Colors.grey.withValues(alpha: 0.2)),
+          child: isCompleted
+              ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
+              : Text(
+                  '$stepNumber',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: isActive ? Colors.white : Colors.grey,
+                  ),
+                ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            color: isCompleted
+                ? AppTheme.emeraldAccent
+                : (isActive ? AppTheme.primarySkyBlue : Colors.grey),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pipelineState = ref.watch(documentPipelineProvider);
+    final int currentStep =
+        (_summaryController.text.isNotEmpty || _editableFlashcards.isNotEmpty)
+            ? 3
+            : (_ocrTextController.text.trim().isNotEmpty ? 2 : 1);
 
     return Scaffold(
       appBar: AppBar(
@@ -418,6 +519,62 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Thanh chỉ báo tiến trình 3 bước trực quan
+              Container(
+                margin: const EdgeInsets.only(bottom: 18),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppTheme.darkBorder
+                        : AppTheme.lightBorder,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    _buildStepIndicator(
+                      stepNumber: 1,
+                      label: 'Nguồn OCR',
+                      isActive: currentStep >= 1,
+                      isCompleted: currentStep > 1,
+                    ),
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        color: currentStep > 1
+                            ? AppTheme.primarySkyBlue
+                            : Colors.grey.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    _buildStepIndicator(
+                      stepNumber: 2,
+                      label: 'Duyệt OCR',
+                      isActive: currentStep >= 2,
+                      isCompleted: currentStep > 2,
+                    ),
+                    Expanded(
+                      child: Container(
+                        height: 2,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        color: currentStep > 2
+                            ? AppTheme.primarySkyBlue
+                            : Colors.grey.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    _buildStepIndicator(
+                      stepNumber: 3,
+                      label: 'Học liệu AI',
+                      isActive: currentStep >= 3,
+                      isCompleted: false,
+                    ),
+                  ],
+                ),
+              ),
+
               // Bước 1: Chọn môn học & Tiêu đề tài liệu
               Card(
                 child: Padding(
@@ -427,7 +584,8 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                     children: [
                       const Text(
                         'Bước 1: Thông tin Tài liệu & Nguồn ảnh OCR',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -443,10 +601,12 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                               items: _availableSubjects.map((s) {
                                 return DropdownMenuItem(
                                   value: s.id,
-                                  child: Text('${s.code} - ${s.title}', overflow: TextOverflow.ellipsis),
+                                  child: Text('${s.code} - ${s.title}',
+                                      overflow: TextOverflow.ellipsis),
                                 );
                               }).toList(),
-                              onChanged: (val) => setState(() => _selectedSubjectId = val),
+                              onChanged: (val) =>
+                                  setState(() => _selectedSubjectId = val),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -487,16 +647,19 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                           OutlinedButton.icon(
                             onPressed: _handleLoadMultiColumnSimulation,
                             icon: const Icon(Icons.auto_awesome_mosaic_rounded),
-                            label: const Text('Nạp Mẫu OCR Đa Cột (Spatial Clustering)'),
+                            label: const Text(
+                                'Nạp Mẫu OCR Đa Cột (Spatial Clustering)'),
                           ),
                         ],
                       ),
                       if (pipelineState.ocrResult != null) ...[
                         const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: AppTheme.emeraldAccent.withValues(alpha: 0.14),
+                            color:
+                                AppTheme.emeraldAccent.withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -526,7 +689,8 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                     children: [
                       const Text(
                         'Bước 2: Kiểm duyệt Văn bản OCR (Trước khi gửi Gemini 1.5 Flash)',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 10),
                       TextField(
@@ -539,8 +703,11 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                       ),
                       const SizedBox(height: 14),
                       FilledButton.icon(
-                        onPressed: pipelineState.isGeneratingAi ? null : _handleGenerateWithGemini,
-                        style: FilledButton.styleFrom(backgroundColor: AppTheme.violetAi),
+                        onPressed: pipelineState.isGeneratingAi
+                            ? null
+                            : _handleGenerateWithGemini,
+                        style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.violetAi),
                         icon: pipelineState.isGeneratingAi
                             ? const SizedBox(
                                 width: 18,
@@ -573,13 +740,16 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                   ),
                   child: Text(
                     pipelineState.errorMessage!,
-                    style: const TextStyle(color: AppTheme.roseDanger, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        color: AppTheme.roseDanger,
+                        fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
 
               // Bước 3: Màn hình chỉnh sửa / duyệt nội dung AI sinh ra trước khi Commit
-              if (_summaryController.text.isNotEmpty || _editableFlashcards.isNotEmpty) ...[
+              if (_summaryController.text.isNotEmpty ||
+                  _editableFlashcards.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Card(
                   child: Padding(
@@ -589,7 +759,8 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                       children: [
                         const Text(
                           'Bước 3: Duyệt & Chỉnh sửa Kết quả AI trước khi Lưu',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 12),
                         const Text(
@@ -616,7 +787,8 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                           children: [
                             Text(
                               'Thẻ ghi nhớ Flashcards (${_editableFlashcards.length} thẻ):',
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 15),
                             ),
                             TextButton.icon(
                               onPressed: () => _showFlashcardEditorDialog(),
@@ -630,18 +802,24 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                           final fc = _editableFlashcards[idx];
                           return Card(
                             margin: const EdgeInsets.only(bottom: 8),
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFFF8FAFC),
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFF1E293B)
+                                    : const Color(0xFFF8FAFC),
                             child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 4),
                               leading: CircleAvatar(
                                 radius: 14,
-                                backgroundColor: AppTheme.primarySkyBlue.withValues(alpha: 0.2),
-                                child: Text('${idx + 1}', style: const TextStyle(fontSize: 12)),
+                                backgroundColor: AppTheme.primarySkyBlue
+                                    .withValues(alpha: 0.2),
+                                child: Text('${idx + 1}',
+                                    style: const TextStyle(fontSize: 12)),
                               ),
                               title: Text(fc.front,
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13.5)),
                               subtitle: Text(
                                 fc.back,
                                 style: const TextStyle(fontSize: 12.5),
@@ -652,14 +830,18 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.edit_outlined, size: 18),
-                                    onPressed: () => _showFlashcardEditorDialog(index: idx),
+                                    icon: const Icon(Icons.edit_outlined,
+                                        size: 18),
+                                    onPressed: () =>
+                                        _showFlashcardEditorDialog(index: idx),
                                     tooltip: 'Sửa nội dung thẻ',
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline, size: 18),
+                                    icon: const Icon(Icons.delete_outline,
+                                        size: 18),
                                     onPressed: () {
-                                      setState(() => _editableFlashcards.removeAt(idx));
+                                      setState(() =>
+                                          _editableFlashcards.removeAt(idx));
                                     },
                                     tooltip: 'Xóa thẻ này',
                                   ),
@@ -674,7 +856,8 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                           children: [
                             Text(
                               'Câu hỏi Trắc nghiệm Quiz (${_editableQuizzes.length} câu):',
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 15),
                             ),
                             TextButton.icon(
                               onPressed: () => _showQuizEditorDialog(),
@@ -688,18 +871,24 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                           final qz = _editableQuizzes[idx];
                           return Card(
                             margin: const EdgeInsets.only(bottom: 8),
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFFF8FAFC),
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFF1E293B)
+                                    : const Color(0xFFF8FAFC),
                             child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 4),
                               leading: CircleAvatar(
                                 radius: 14,
-                                backgroundColor: AppTheme.emeraldAccent.withValues(alpha: 0.2),
-                                child: Text('Q${idx + 1}', style: const TextStyle(fontSize: 11)),
+                                backgroundColor: AppTheme.emeraldAccent
+                                    .withValues(alpha: 0.2),
+                                child: Text('Q${idx + 1}',
+                                    style: const TextStyle(fontSize: 11)),
                               ),
                               title: Text(qz.question,
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13.5)),
                               subtitle: Text(
                                 'Đáp án đúng: ${qz.options.isNotEmpty && qz.correctIndex < qz.options.length ? qz.options[qz.correctIndex] : "Chưa chọn"}',
                                 style: const TextStyle(
@@ -712,14 +901,18 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: const Icon(Icons.edit_outlined, size: 18),
-                                    onPressed: () => _showQuizEditorDialog(index: idx),
+                                    icon: const Icon(Icons.edit_outlined,
+                                        size: 18),
+                                    onPressed: () =>
+                                        _showQuizEditorDialog(index: idx),
                                     tooltip: 'Sửa câu hỏi & đáp án',
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline, size: 18),
+                                    icon: const Icon(Icons.delete_outline,
+                                        size: 18),
                                     onPressed: () {
-                                      setState(() => _editableQuizzes.removeAt(idx));
+                                      setState(
+                                          () => _editableQuizzes.removeAt(idx));
                                     },
                                     tooltip: 'Xóa câu hỏi này',
                                   ),
@@ -730,7 +923,9 @@ class _OcrAiPipelineScreenState extends ConsumerState<OcrAiPipelineScreen> {
                         }),
                         const SizedBox(height: 18),
                         FilledButton.icon(
-                          onPressed: pipelineState.isSaving ? null : _handleCommitToDatabase,
+                          onPressed: pipelineState.isSaving
+                              ? null
+                              : _handleCommitToDatabase,
                           icon: const Icon(Icons.save_rounded),
                           label: const Text(
                             'Xác nhận & Lưu vào Drift SQLite + Đồng bộ Cloud',

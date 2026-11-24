@@ -25,7 +25,9 @@ class StudySetEntity {
 
   int get dueFlashcardsCount {
     final now = DateTime.now();
-    return flashcards.where((f) => !f.isDeleted && !f.nextReviewAt.isAfter(now)).length;
+    return flashcards
+        .where((f) => !f.isDeleted && !f.nextReviewAt.isAfter(now))
+        .length;
   }
 
   StudySetEntity copyWith({
@@ -59,7 +61,8 @@ class StudySetEntity {
         'is_deleted': isDeleted,
       };
 
-  factory StudySetEntity.fromSyncJson(Map<String, dynamic> json) => StudySetEntity(
+  factory StudySetEntity.fromSyncJson(Map<String, dynamic> json) =>
+      StudySetEntity(
         id: json['id'] as String,
         documentId: json['document_id'] as String,
         title: json['title'] as String,

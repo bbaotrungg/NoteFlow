@@ -73,7 +73,8 @@ class FlashcardEntity {
         'is_deleted': isDeleted,
       };
 
-  factory FlashcardEntity.fromSyncJson(Map<String, dynamic> json) => FlashcardEntity(
+  factory FlashcardEntity.fromSyncJson(Map<String, dynamic> json) =>
+      FlashcardEntity(
         id: json['id'] as String,
         studySetId: json['study_set_id'] as String,
         frontText: json['front_text'] as String,
@@ -82,7 +83,8 @@ class FlashcardEntity {
         easeFactor: (json['ease_factor'] as num?)?.toDouble() ?? 2.5,
         intervalDays: (json['interval_days'] as num?)?.toInt() ?? 0,
         repetitionCount: (json['repetition_count'] as num?)?.toInt() ?? 0,
-        nextReviewAt: DateTime.parse(json['next_review_at'] as String).toLocal(),
+        nextReviewAt:
+            DateTime.parse(json['next_review_at'] as String).toLocal(),
         updatedAt: DateTime.parse(json['updated_at'] as String).toLocal(),
         isDeleted: (json['is_deleted'] as bool?) ?? false,
       );

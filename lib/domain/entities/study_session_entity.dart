@@ -43,10 +43,12 @@ class StudySessionEntity {
         'completed_at': completedAt.toUtc().toIso8601String(),
       };
 
-  factory StudySessionEntity.fromSyncJson(Map<String, dynamic> json) => StudySessionEntity(
+  factory StudySessionEntity.fromSyncJson(Map<String, dynamic> json) =>
+      StudySessionEntity(
         id: json['id'] as String,
         studySetId: json['study_set_id'] as String,
-        sessionType: StudySessionType.fromString(json['session_type'] as String? ?? 'FLASHCARD'),
+        sessionType: StudySessionType.fromString(
+            json['session_type'] as String? ?? 'FLASHCARD'),
         score: (json['score'] as num?)?.toDouble(),
         totalItems: (json['total_items'] as num?)?.toInt() ?? 0,
         durationSeconds: (json['duration_seconds'] as num?)?.toInt() ?? 0,

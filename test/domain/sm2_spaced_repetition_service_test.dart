@@ -7,7 +7,9 @@ void main() {
   final baseDate = DateTime(2026, 10, 26, 10, 0);
 
   group('SuperMemo SM-2 Cognitive Algorithm Tests', () {
-    test('First successful review (q=4, n=0 -> n=1) sets interval to 1 day and keeps EF=2.5', () {
+    test(
+        'First successful review (q=4, n=0 -> n=1) sets interval to 1 day and keeps EF=2.5',
+        () {
       final result = service.calculate(
         quality: 4,
         currentEaseFactor: 2.5,
@@ -22,7 +24,9 @@ void main() {
       expect(result.nextReviewAt, baseDate.add(const Duration(days: 1)));
     });
 
-    test('Second successful review (q=5, n=1 -> n=2) sets interval to 6 days and increases EF by 0.1', () {
+    test(
+        'Second successful review (q=5, n=1 -> n=2) sets interval to 6 days and increases EF by 0.1',
+        () {
       final result = service.calculate(
         quality: 5,
         currentEaseFactor: 2.5,
@@ -37,7 +41,9 @@ void main() {
       expect(result.nextReviewAt, baseDate.add(const Duration(days: 6)));
     });
 
-    test('Third successful review (q=5, n=2 -> n=3) multiplies previous interval by new EF', () {
+    test(
+        'Third successful review (q=5, n=2 -> n=3) multiplies previous interval by new EF',
+        () {
       final result = service.calculate(
         quality: 5,
         currentEaseFactor: 2.6,
@@ -52,7 +58,9 @@ void main() {
       expect(result.nextIntervalDays, 16);
     });
 
-    test('Forgotten card (q < 3) resets repetitionCount to 0 and intervalDays to 1', () {
+    test(
+        'Forgotten card (q < 3) resets repetitionCount to 0 and intervalDays to 1',
+        () {
       final result = service.calculate(
         quality: 1,
         currentEaseFactor: 2.5,
@@ -66,7 +74,9 @@ void main() {
       expect(result.nextEaseFactor, lessThan(2.5));
     });
 
-    test('Ease Factor never drops below minimum threshold 1.3 (Anti-Ease-Hell constraint)', () {
+    test(
+        'Ease Factor never drops below minimum threshold 1.3 (Anti-Ease-Hell constraint)',
+        () {
       final result = service.calculate(
         quality: 0,
         currentEaseFactor: 1.32,
@@ -78,7 +88,8 @@ void main() {
       expect(result.nextEaseFactor, equals(1.3));
     });
 
-    test('applyReview immutably updates FlashcardEntity with new SM-2 schedule', () {
+    test('applyReview immutably updates FlashcardEntity with new SM-2 schedule',
+        () {
       final card = FlashcardEntity(
         id: 'fc-01',
         studySetId: 'set-01',

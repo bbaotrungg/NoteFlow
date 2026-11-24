@@ -33,7 +33,8 @@ class OcrSpatialClusteringService {
   Future<File?> pickAndCropDocumentImage({required ImageSource source}) async {
     final XFile? pickedFile = await _imagePicker.pickImage(
       source: source,
-      imageQuality: 88, // Nén ảnh thông minh tiết kiệm RAM trước khi đưa vào pipeline
+      imageQuality:
+          88, // Nén ảnh thông minh tiết kiệm RAM trước khi đưa vào pipeline
       maxWidth: 2200,
       maxHeight: 2200,
     );
@@ -73,13 +74,16 @@ class OcrSpatialClusteringService {
 
     try {
       final inputImage = InputImage.fromFile(imageFile);
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+      final RecognizedText recognizedText =
+          await textRecognizer.processImage(inputImage);
 
       final elements = <SpatialTextElement>[];
       for (final block in recognizedText.blocks) {
         for (final line in block.lines) {
           final rect = line.boundingBox;
-          if (line.text.trim().isNotEmpty && rect.width > 0 && rect.height > 0) {
+          if (line.text.trim().isNotEmpty &&
+              rect.width > 0 &&
+              rect.height > 0) {
             elements.add(
               SpatialTextElement(
                 text: line.text.trim(),
@@ -152,7 +156,8 @@ class OcrSpatialClusteringService {
 
       // 3. Sắp xếp các phần tử trong mỗi hàng theo trục X từ trái sang phải
       for (final rowElems in rawRows) {
-        rowElems.sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
+        rowElems
+            .sort((a, b) => a.boundingBox.left.compareTo(b.boundingBox.left));
         final mergedRect = _computeMergedBounds(rowElems);
         allClusteredRows.add(
           ClusteredTextRow(
@@ -194,11 +199,14 @@ class OcrSpatialClusteringService {
     List<SpatialTextElement> currentRow,
   ) {
     final Rect rowBounds = _computeMergedBounds(currentRow);
-    final double overlapTop = math.max(candidate.boundingBox.top, rowBounds.top);
-    final double overlapBottom = math.min(candidate.boundingBox.bottom, rowBounds.bottom);
+    final double overlapTop =
+        math.max(candidate.boundingBox.top, rowBounds.top);
+    final double overlapBottom =
+        math.min(candidate.boundingBox.bottom, rowBounds.bottom);
     final double overlapHeight = math.max(0.0, overlapBottom - overlapTop);
 
-    final double minHeight = math.min(candidate.boundingBox.height, rowBounds.height);
+    final double minHeight =
+        math.min(candidate.boundingBox.height, rowBounds.height);
     if (minHeight <= 0) return false;
 
     final double verticalOverlapRatio = overlapHeight / minHeight;
@@ -208,8 +216,9 @@ class OcrSpatialClusteringService {
         centerYDiff <= (minHeight * 0.45);
   }
 
-  /// Phát hiện bố cục tài liệu 2 cột (ví dụ bài báo khoa học IEEE/ACM hoặc slide chia đôi)
-  List<List<SpatialTextElement>> _segmentColumns(List<SpatialTextElement> elements) {
+  /// Phát hiện bố cục tài liệu đa cột (ví dụ bài báo khoa học IEEE/ACM hoặc slide chia đôi có tiêu đề chung)
+  List<List<SpatialTextElement>> _segmentColumns(
+      List<SpatialTextElement> elements) {
     if (elements.length < 4) return [elements];
 
     double minX = double.infinity;
@@ -225,26 +234,43 @@ class OcrSpatialClusteringService {
     final double midX = minX + pageWidth / 2.0;
     final double gutterZoneHalfWidth = pageWidth * 0.06;
 
-    // Kiểm tra xem có phần tử nào cắt ngang qua đường phân cách giữa trang không
-    int crossingMidCount = 0;
+    // Phân loại các phần tử: Tiêu đề trải rộng giữa trang (spanning header), Cột trái, Cột phải
+    final spanningHeaders = <SpatialTextElement>[];
     final leftCol = <SpatialTextElement>[];
     final rightCol = <SpatialTextElement>[];
+    int bodyCrossingMidCount = 0;
 
     for (final e in elements) {
       final crossesMid = e.boundingBox.left < (midX - gutterZoneHalfWidth) &&
           e.boundingBox.right > (midX + gutterZoneHalfWidth);
+
       if (crossesMid) {
-        crossingMidCount++;
-      }
-      if (e.centerX < midX) {
+        // Nếu phần tử trải rộng >= 45% chiều rộng trang, đó là Header / Tiêu đề trải dài
+        if (e.boundingBox.width >= pageWidth * 0.45) {
+          spanningHeaders.add(e);
+        } else {
+          bodyCrossingMidCount++;
+        }
+      } else if (e.centerX < midX) {
         leftCol.add(e);
       } else {
         rightCol.add(e);
       }
     }
 
-    // Nếu không có dòng nào cắt ngang trục giữa và cả 2 bên đều có nội dung đáng kể => Tài liệu 2 cột
-    if (crossingMidCount == 0 && leftCol.length >= 2 && rightCol.length >= 2) {
+    // Trường hợp 1: Có header trải rộng và 2 cột rõ rệt ở phần thân
+    if (spanningHeaders.isNotEmpty &&
+        bodyCrossingMidCount == 0 &&
+        leftCol.length >= 2 &&
+        rightCol.length >= 2) {
+      return [spanningHeaders, leftCol, rightCol];
+    }
+
+    // Trường hợp 2: Không có header, 2 cột hoàn toàn tách biệt
+    if (bodyCrossingMidCount == 0 &&
+        spanningHeaders.isEmpty &&
+        leftCol.length >= 2 &&
+        rightCol.length >= 2) {
       return [leftCol, rightCol];
     }
 
@@ -252,6 +278,7 @@ class OcrSpatialClusteringService {
   }
 
   Rect _computeMergedBounds(List<SpatialTextElement> elements) {
+    if (elements.isEmpty) return Rect.zero;
     double left = elements.first.boundingBox.left;
     double top = elements.first.boundingBox.top;
     double right = elements.first.boundingBox.right;

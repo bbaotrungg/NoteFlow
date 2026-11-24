@@ -69,11 +69,13 @@ class DocumentEntity {
         'is_deleted': isDeleted,
       };
 
-  factory DocumentEntity.fromSyncJson(Map<String, dynamic> json) => DocumentEntity(
+  factory DocumentEntity.fromSyncJson(Map<String, dynamic> json) =>
+      DocumentEntity(
         id: json['id'] as String,
         subjectId: json['subject_id'] as String,
         title: json['title'] as String,
-        fileType: DocumentFileType.fromString(json['file_type'] as String? ?? 'TEXT'),
+        fileType:
+            DocumentFileType.fromString(json['file_type'] as String? ?? 'TEXT'),
         localFilePath: (json['local_file_path'] as String?) ?? '',
         rawExtractedText: (json['raw_extracted_text'] as String?) ?? '',
         updatedAt: DateTime.parse(json['updated_at'] as String).toLocal(),

@@ -12,6 +12,9 @@ import '../providers/app_providers.dart';
 import '../widgets/charts/retention_curve_painter.dart';
 import '../widgets/charts/subject_donut_painter.dart';
 import '../widgets/charts/weekly_activity_bar_painter.dart';
+import '../widgets/review_plan/daily_review_plan_card.dart';
+import '../widgets/weakness/weakness_insights_section.dart';
+import 'ai_study_assistant_screen.dart';
 import 'auth_screen.dart';
 import 'flashcard_study_screen.dart';
 import 'ocr_ai_pipeline_screen.dart';
@@ -27,7 +30,8 @@ class HomeDashboardScreen extends ConsumerStatefulWidget {
   const HomeDashboardScreen({super.key});
 
   @override
-  ConsumerState<HomeDashboardScreen> createState() => _HomeDashboardScreenState();
+  ConsumerState<HomeDashboardScreen> createState() =>
+      _HomeDashboardScreenState();
 }
 
 class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
@@ -46,41 +50,66 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           builder: (ctx, setDialogState) {
             return AlertDialog(
               title: const Text('Thêm Môn Học Mới (VKU)'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: codeCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Mã học phần (VD: IT4409)',
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: codeCtrl,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Mã học phần (VD: IT4409)',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên học phần',
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: titleCtrl,
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        labelText: 'Tên học phần',
+                        prefixIcon: Icon(Icons.school_outlined),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Wrap(
-                    spacing: 10,
-                    children: palette.map((hex) {
-                      final color = AppTheme.parseHexColor(hex);
-                      final isChosen = hex == selectedColor;
-                      return GestureDetector(
-                        onTap: () => setDialogState(() => selectedColor = hex),
-                        child: CircleAvatar(
-                          radius: 16,
-                          backgroundColor: color,
-                          child: isChosen
-                              ? const Icon(Icons.check, color: Colors.white, size: 18)
-                              : null,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Chọn màu chủ đạo:',
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: palette.map((hex) {
+                        final color = AppTheme.parseHexColor(hex);
+                        final isChosen = hex == selectedColor;
+                        return Semantics(
+                          button: true,
+                          selected: isChosen,
+                          label: 'Màu $hex',
+                          child: InkResponse(
+                            radius: 24,
+                            onTap: () =>
+                                setDialogState(() => selectedColor = hex),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: CircleAvatar(
+                                radius: 18,
+                                backgroundColor: color,
+                                child: isChosen
+                                    ? const Icon(Icons.check_rounded,
+                                        color: Colors.white, size: 20)
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -89,7 +118,10 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 ),
                 FilledButton(
                   onPressed: () async {
-                    if (titleCtrl.text.trim().isEmpty || codeCtrl.text.trim().isEmpty) return;
+                    if (titleCtrl.text.trim().isEmpty ||
+                        codeCtrl.text.trim().isEmpty) {
+                      return;
+                    }
                     await ref.read(studyRepositoryProvider).createSubject(
                           title: titleCtrl.text.trim(),
                           code: codeCtrl.text.trim(),
@@ -107,7 +139,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     );
   }
 
-  Future<void> _confirmDeleteSubject(BuildContext context, SubjectEntity sub) async {
+  Future<void> _confirmDeleteSubject(
+      BuildContext context, SubjectEntity sub) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -159,7 +192,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     final studySets = studySetsAsync.valueOrNull ?? const <StudySetEntity>[];
     final dueCards = dueCardsAsync.valueOrNull ?? const <FlashcardEntity>[];
     final allCards = allCardsAsync.valueOrNull ?? const <FlashcardEntity>[];
-    final sessions = recentSessionsAsync.valueOrNull ?? const <StudySessionEntity>[];
+    final sessions =
+        recentSessionsAsync.valueOrNull ?? const <StudySessionEntity>[];
     final pendingSyncCount = pendingSyncAsync.valueOrNull ?? 0;
 
     return LayoutBuilder(
@@ -183,14 +217,27 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(AppConstants.appName),
+                      const Text(
+                        AppConstants.appName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       Text(
-                        AppConstants.universityDepartment,
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                        constraints.maxWidth < 420
+                            ? 'VKU AI Study'
+                            : AppConstants.universityDepartment,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -204,26 +251,32 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 child: ActionChip(
                   avatar: syncState.isLoading
                       ? const SizedBox(
-                          width: 16,
-                          height: 16,
+                          width: 14,
+                          height: 14,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Icon(
                           pendingSyncCount > 0
                               ? Icons.cloud_upload_rounded
                               : Icons.cloud_done_rounded,
-                          size: 18,
+                          size: 17,
                           color: pendingSyncCount > 0
                               ? AppTheme.amberWarning
                               : AppTheme.emeraldAccent,
                         ),
                   label: Text(
-                    pendingSyncCount > 0 ? 'Sync Queue ($pendingSyncCount)' : 'Đã đồng bộ',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    pendingSyncCount > 0
+                        ? (constraints.maxWidth < 420
+                            ? '$pendingSyncCount'
+                            : 'Sync ($pendingSyncCount)')
+                        : (constraints.maxWidth < 420 ? 'Sync' : 'Đã đồng bộ'),
+                    style: const TextStyle(
+                        fontSize: 11.5, fontWeight: FontWeight.w700),
                   ),
                   onPressed: () async {
-                    final synced =
-                        await ref.read(syncControllerProvider.notifier).triggerManualSync();
+                    final synced = await ref
+                        .read(syncControllerProvider.notifier)
+                        .triggerManualSync();
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -237,10 +290,26 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 ),
               ),
               IconButton(
+                tooltip: 'Trợ lý Học tập AI NoteFlow',
+                icon: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: AppTheme.primarySkyBlue,
+                ),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AiStudyAssistantScreen(),
+                    ),
+                  );
+                },
+              ),
+              IconButton(
                 tooltip: 'Chuyển đổi Dark / Light Mode',
                 onPressed: () {
                   ref.read(themeModeProvider.notifier).state =
-                      themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+                      themeMode == ThemeMode.dark
+                          ? ThemeMode.light
+                          : ThemeMode.dark;
                 },
                 icon: Icon(
                   themeMode == ThemeMode.dark
@@ -342,7 +411,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               ? null
               : NavigationBar(
                   selectedIndex: _selectedNavIndex,
-                  onDestinationSelected: (idx) => setState(() => _selectedNavIndex = idx),
+                  onDestinationSelected: (idx) =>
+                      setState(() => _selectedNavIndex = idx),
                   destinations: const [
                     NavigationDestination(
                       icon: Icon(Icons.dashboard_outlined),
@@ -357,7 +427,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     NavigationDestination(
                       icon: Icon(Icons.insights_outlined),
                       selectedIcon: Icon(Icons.insights_rounded),
-                      label: 'Thống kê 60FPS',
+                      label: 'Thống kê',
                     ),
                   ],
                 ),
@@ -366,7 +436,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               if (isTabletOrLandscape)
                 NavigationRail(
                   selectedIndex: _selectedNavIndex,
-                  onDestinationSelected: (idx) => setState(() => _selectedNavIndex = idx),
+                  onDestinationSelected: (idx) =>
+                      setState(() => _selectedNavIndex = idx),
                   labelType: NavigationRailLabelType.all,
                   destinations: const [
                     NavigationRailDestination(
@@ -382,7 +453,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     NavigationRailDestination(
                       icon: Icon(Icons.insights_outlined),
                       selectedIcon: Icon(Icons.insights_rounded),
-                      label: Text('Thống kê 60FPS'),
+                      label: Text('Thống kê'),
                     ),
                   ],
                 ),
@@ -398,11 +469,13 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       allCards: allCards,
                       pendingSyncCount: pendingSyncCount,
                     ),
-                    _buildStudySetsTab(context, subjects: subjects, studySets: studySets),
+                    _buildStudySetsTab(context,
+                        subjects: subjects, studySets: studySets),
                     _buildAnalyticsTab(
                       context,
                       subjects: subjects,
                       dueCards: dueCards,
+                      allCards: allCards,
                       sessions: sessions,
                     ),
                   ],
@@ -428,6 +501,10 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Kế hoạch Ôn tập Cá nhân hóa Hàng ngày (Stage C: Personalized Review Planner)
+          const DailyReviewPlanCard(),
+          const SizedBox(height: 16),
+
           // Banner Ôn tập thông minh theo thuật toán SuperMemo SM-2
           Container(
             padding: const EdgeInsets.all(22),
@@ -445,7 +522,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(12),
@@ -462,7 +540,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     const Spacer(),
                     Text(
                       'Sync Queue: $pendingSyncCount mục',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ],
                 ),
@@ -479,7 +558,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   const SizedBox(height: 6),
                   const Text(
                     'Thuật toán lặp lại ngắt quãng SM-2 tự động ưu tiên các thẻ có hệ số dễ (Ease Factor) thấp để tối ưu hóa độ bền trí nhớ dài hạn.',
-                    style: TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.4),
+                    style: TextStyle(
+                        color: Colors.white70, fontSize: 13.5, height: 1.4),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -495,7 +575,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => FlashcardStudyScreen(
-                                title: 'Ôn tập Đến hạn (${dueCards.length} thẻ SM-2)',
+                                title:
+                                    'Ôn tập Đến hạn (${dueCards.length} thẻ SM-2)',
                                 initialCards: dueCards,
                               ),
                             ),
@@ -514,7 +595,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => FlashcardStudyScreen(
-                                  title: 'Luyện tập Tự do (Tất cả ${allCards.length} thẻ)',
+                                  title:
+                                      'Luyện tập Tự do (Tất cả ${allCards.length} thẻ)',
                                   initialCards: allCards,
                                 ),
                               ),
@@ -537,7 +619,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   const SizedBox(height: 6),
                   const Text(
                     'Bạn đã hoàn thành toàn bộ lịch ôn tập SM-2. Bạn có thể luyện tập tự do toàn bộ thẻ bất cứ lúc nào.',
-                    style: TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.4),
+                    style: TextStyle(
+                        color: Colors.white70, fontSize: 13.5, height: 1.4),
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
@@ -549,7 +632,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => FlashcardStudyScreen(
-                            title: 'Luyện tập Tự do (Tất cả ${allCards.length} thẻ)',
+                            title:
+                                'Luyện tập Tự do (Tất cả ${allCards.length} thẻ)',
                             initialCards: allCards,
                           ),
                         ),
@@ -570,7 +654,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   const SizedBox(height: 6),
                   const Text(
                     'Quét tài liệu học tập hoặc ảnh slide để bắt đầu sinh thẻ ghi nhớ SM-2 và bộ câu hỏi trắc nghiệm tự động.',
-                    style: TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.4),
+                    style: TextStyle(
+                        color: Colors.white70, fontSize: 13.5, height: 1.4),
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
@@ -581,7 +666,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => OcrAiPipelineScreen(subjects: subjects),
+                          builder: (_) =>
+                              OcrAiPipelineScreen(subjects: subjects),
                         ),
                       );
                     },
@@ -592,6 +678,10 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 18),
+
+          // Chẩn đoán Điểm yếu Học tập (Stage B: Smart Weakness Detection - Compact Mode)
+          const WeaknessInsightsSection(compactMode: true),
           const SizedBox(height: 22),
 
           // Danh sách Môn học (CRUD + Tombstone Soft-Delete)
@@ -613,13 +703,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           if (subjects.isEmpty)
             Card(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
                 child: Column(
                   children: [
-                    const Icon(Icons.school_outlined, size: 48, color: Colors.grey),
+                    const Icon(Icons.school_outlined,
+                        size: 48, color: Colors.grey),
                     const SizedBox(height: 12),
                     const Text('Chưa có học phần nào',
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 16)),
                     const SizedBox(height: 6),
                     const Text(
                       'Thêm môn học đầu tiên để quản lý tài liệu và ôn tập flashcard theo từng môn học.',
@@ -641,27 +734,43 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
               final color = AppTheme.parseHexColor(sub.colorHex);
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                  leading: CircleAvatar(
-                    backgroundColor: color.withValues(alpha: 0.18),
-                    child: Text(
-                      sub.code.substring(0, sub.code.length.clamp(0, 2)),
-                      style: TextStyle(color: color, fontWeight: FontWeight.w800),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  onTap: () {
+                    setState(() => _selectedNavIndex = 1);
+                  },
+                  child: ListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                    leading: CircleAvatar(
+                      backgroundColor: color.withValues(alpha: 0.18),
+                      child: Text(
+                        sub.code.substring(0, sub.code.length.clamp(0, 2)),
+                        style: TextStyle(
+                            color: color, fontWeight: FontWeight.w800),
+                      ),
                     ),
-                  ),
-                  title: Text(
-                    '${sub.code} • ${sub.title}',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: Text(
-                    '${sub.documentCount} tài liệu • ${sub.dueFlashcardCount} thẻ cần ôn • ${sub.totalStudyMinutes} phút học',
-                    style: const TextStyle(fontSize: 12.5),
-                  ),
-                  trailing: IconButton(
-                    tooltip: 'Xóa mềm (Tombstone Soft-Delete)',
-                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                    onPressed: () => _confirmDeleteSubject(context, sub),
+                    title: Text(
+                      '${sub.code} • ${sub.title}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(
+                      '${sub.documentCount} tài liệu • ${sub.dueFlashcardCount} thẻ cần ôn • ${sub.totalStudyMinutes} phút học',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    trailing: Semantics(
+                      button: true,
+                      label: 'Xóa môn học ${sub.code}',
+                      child: IconButton(
+                        tooltip: 'Xóa môn học',
+                        icon:
+                            const Icon(Icons.delete_outline_rounded, size: 20),
+                        onPressed: () => _confirmDeleteSubject(context, sub),
+                      ),
+                    ),
                   ),
                 ),
               );
@@ -683,7 +792,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.auto_stories_outlined, size: 64, color: Colors.grey),
+              const Icon(Icons.auto_stories_outlined,
+                  size: 64, color: Colors.grey),
               const SizedBox(height: 16),
               const Text(
                 'Chưa có bộ học liệu AI nào',
@@ -756,8 +866,10 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     spacing: 10,
                     runSpacing: 8,
                     children: [
-                      _buildTag('${set.flashcards.length} Flashcards', AppTheme.primarySkyBlue),
-                      _buildTag('${set.quizQuestions.length} Quiz', AppTheme.emeraldAccent),
+                      _buildTag('${set.flashcards.length} Flashcards',
+                          AppTheme.primarySkyBlue),
+                      _buildTag('${set.quizQuestions.length} Quiz',
+                          AppTheme.emeraldAccent),
                       _buildTag(
                         '${set.dueFlashcardsCount} thẻ đến hạn SM-2',
                         AppTheme.amberWarning,
@@ -777,18 +889,24 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     BuildContext context, {
     required List<SubjectEntity> subjects,
     required List<FlashcardEntity> dueCards,
+    required List<FlashcardEntity> allCards,
     required List<StudySessionEntity> sessions,
   }) {
     double avgEf = 2.5;
     double avgInterval = 2.0;
     int avgRep = 1;
 
-    if (dueCards.isNotEmpty) {
-      avgEf = dueCards.fold<double>(0.0, (s, c) => s + c.easeFactor) / dueCards.length;
+    final cardsForAnalytics = allCards.isNotEmpty ? allCards : dueCards;
+    if (cardsForAnalytics.isNotEmpty) {
+      avgEf = cardsForAnalytics.fold<double>(0.0, (s, c) => s + c.easeFactor) /
+          cardsForAnalytics.length;
       avgInterval =
-          dueCards.fold<int>(0, (s, c) => s + c.intervalDays) / dueCards.length;
-      avgRep = (dueCards.fold<int>(0, (s, c) => s + c.repetitionCount) / dueCards.length)
-          .round();
+          cardsForAnalytics.fold<int>(0, (s, c) => s + c.intervalDays) /
+              cardsForAnalytics.length;
+      avgRep =
+          (cardsForAnalytics.fold<int>(0, (s, c) => s + c.repetitionCount) /
+                  cardsForAnalytics.length)
+              .round();
     }
 
     return SingleChildScrollView(
@@ -796,6 +914,10 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Phân tích Chi tiết Điểm yếu Học tập (Stage B: Smart Weakness Insights)
+          const WeaknessInsightsSection(compactMode: false),
+          const SizedBox(height: 16),
+
           // Biểu đồ 1: Đường cong ghi nhớ Ebbinghaus & SuperMemo SM-2
           Card(
             child: Padding(
@@ -804,13 +926,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '1. Đường cong Ghi nhớ Ebbinghaus (RetentionCurvePainter)',
+                    '1. Đường cong Ghi nhớ Ebbinghaus & SuperMemo SM-2',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Đường xanh: Duy trì trí nhớ với SM-2 (EF TB: ${avgEf.toStringAsFixed(2)}) • Đường đỏ: Suy giảm tự nhiên không ôn tập',
-                    style: const TextStyle(fontSize: 12.5, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   RetentionCurveChart(
@@ -832,13 +957,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '2. Phân bổ Thời lượng Học tập (SubjectDonutPainter)',
+                    '2. Phân bổ Thời lượng Học tập Theo Môn',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Chạm trực tiếp vào từng cung tròn trên Canvas để xem chi tiết môn học',
-                    style: TextStyle(fontSize: 12.5, color: Colors.grey),
+                  Text(
+                    'Chạm trực tiếp vào từng cung tròn trên biểu đồ để xem chi tiết môn học',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   SubjectStudyDonutChart(subjects: subjects),
@@ -856,13 +984,16 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '3. Hoạt động Ôn tập 7 Ngày qua (WeeklyActivityBarPainter)',
+                    '3. Hoạt động Ôn tập 7 Ngày Gần Nhất',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Cột Xanh dương: Thẻ Flashcards đã ôn • Cột Xanh lá: Câu hỏi Quiz đã hoàn thành',
-                    style: TextStyle(fontSize: 12.5, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   WeeklyActivityBarChart(sessions: sessions),
@@ -884,7 +1015,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+        style:
+            TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
       ),
     );
   }

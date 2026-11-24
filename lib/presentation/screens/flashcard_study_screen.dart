@@ -24,7 +24,8 @@ class FlashcardStudyScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<FlashcardStudyScreen> createState() => _FlashcardStudyScreenState();
+  ConsumerState<FlashcardStudyScreen> createState() =>
+      _FlashcardStudyScreenState();
 }
 
 class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
@@ -77,9 +78,10 @@ class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
       _sessionRecorded = true;
       _timer?.cancel();
       final targetSetId = widget.studySetId ?? currentCard.studySetId;
-      final goodOrEasy =
-          (_ratingStats[ReviewRating.good] ?? 0) + (_ratingStats[ReviewRating.easy] ?? 0);
-      final scorePct = _deck.isEmpty ? 100.0 : (goodOrEasy / _deck.length) * 100.0;
+      final goodOrEasy = (_ratingStats[ReviewRating.good] ?? 0) +
+          (_ratingStats[ReviewRating.easy] ?? 0);
+      final scorePct =
+          _deck.isEmpty ? 100.0 : (goodOrEasy / _deck.length) * 100.0;
 
       await ref.read(studyRepositoryProvider).recordStudySession(
             studySetId: targetSetId,
@@ -91,49 +93,80 @@ class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
     }
   }
 
+  /// Ghi nhận phiên học dở dang nếu người dùng thoát màn hình trước khi hết bộ thẻ
+  Future<void> _recordPartialSessionIfNeeded() async {
+    if (_currentIndex > 0 && !_sessionRecorded && _deck.isNotEmpty) {
+      _sessionRecorded = true;
+      _timer?.cancel();
+      final targetSetId = widget.studySetId ?? _deck.first.studySetId;
+      final goodOrEasy = (_ratingStats[ReviewRating.good] ?? 0) +
+          (_ratingStats[ReviewRating.easy] ?? 0);
+      final scorePct = (goodOrEasy / _currentIndex) * 100.0;
+
+      await ref.read(studyRepositoryProvider).recordStudySession(
+            studySetId: targetSetId,
+            sessionType: StudySessionType.flashcard,
+            score: scorePct,
+            totalItems: _currentIndex,
+            durationSeconds: _elapsedSeconds,
+          );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isCompleted = _currentIndex >= _deck.length;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppTheme.primarySkyBlue.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.timer_outlined, size: 16, color: AppTheme.primarySkyBlue),
-                    const SizedBox(width: 4),
-                    Text(
-                      DateTimeUtils.formatDurationClock(_elapsedSeconds),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primarySkyBlue,
-                      ),
+    return PopScope(
+        canPop: true,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) {
+            _recordPartialSessionIfNeeded();
+          }
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(widget.title),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Center(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primarySkyBlue.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
+                    child: Row(
+                      children: [
+                        const Icon(Icons.timer_outlined,
+                            size: 16, color: AppTheme.primarySkyBlue),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateTimeUtils.formatDurationClock(_elapsedSeconds),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.primarySkyBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: _deck.isEmpty
-            ? const Center(child: Text('Chưa có thẻ Flashcard nào trong bộ học tập này.'))
-            : isCompleted
-                ? _buildCompletionSummary(context)
-                : _buildActiveDeckView(context),
-      ),
-    );
+          body: SafeArea(
+            child: _deck.isEmpty
+                ? const Center(
+                    child:
+                        Text('Chưa có thẻ Flashcard nào trong bộ học tập này.'))
+                : isCompleted
+                    ? _buildCompletionSummary(context)
+                    : _buildActiveDeckView(context),
+          ),
+        ));
   }
 
   Widget _buildActiveDeckView(BuildContext context) {
@@ -151,11 +184,13 @@ class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
             children: [
               Text(
                 'Thẻ ${_currentIndex + 1} / ${_deck.length}',
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
               Text(
                 'SM-2 Ease Factor: ${currentCard.easeFactor.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 13, color: AppTheme.primarySkyBlue),
+                style: const TextStyle(
+                    fontSize: 13, color: AppTheme.primarySkyBlue),
               ),
             ],
           ),
@@ -166,7 +201,8 @@ class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
               value: progress,
               minHeight: 8,
               backgroundColor: AppTheme.primarySkyBlue.withValues(alpha: 0.15),
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primarySkyBlue),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(AppTheme.primarySkyBlue),
             ),
           ),
           const SizedBox(height: 20),
@@ -209,35 +245,46 @@ class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
               return Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: () => _submitRating(rating),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: btnColor.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: btnColor.withValues(alpha: 0.55), width: 1.4),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            rating.label,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                              color: btnColor,
+                  child: Semantics(
+                    button: true,
+                    label:
+                        'Đánh giá ${rating.label}, dự kiến ôn lại sau ${preview.nextIntervalDays} ngày',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                      onTap: () => _submitRating(rating),
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 56),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: btnColor.withValues(alpha: 0.14),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusMd),
+                          border: Border.all(
+                              color: btnColor.withValues(alpha: 0.65),
+                              width: 1.5),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              rating.label,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                color: btnColor,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${preview.nextIntervalDays} ngày',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
+                            const SizedBox(height: 3),
+                            Text(
+                              '${preview.nextIntervalDays} ngày',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -283,13 +330,21 @@ class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
                   runSpacing: 12,
                   alignment: WrapAlignment.center,
                   children: [
-                    _buildStatPill('Rất dễ (q=5)', _ratingStats[ReviewRating.easy] ?? 0,
+                    _buildStatPill(
+                        'Rất dễ (q=5)',
+                        _ratingStats[ReviewRating.easy] ?? 0,
                         AppTheme.emeraldAccent),
-                    _buildStatPill('Nhớ tốt (q=4)', _ratingStats[ReviewRating.good] ?? 0,
+                    _buildStatPill(
+                        'Nhớ tốt (q=4)',
+                        _ratingStats[ReviewRating.good] ?? 0,
                         AppTheme.primarySkyBlue),
-                    _buildStatPill('Tạm nhớ (q=3)', _ratingStats[ReviewRating.hard] ?? 0,
+                    _buildStatPill(
+                        'Tạm nhớ (q=3)',
+                        _ratingStats[ReviewRating.hard] ?? 0,
                         AppTheme.amberWarning),
-                    _buildStatPill('Cần ôn lại (q=1)', _ratingStats[ReviewRating.again] ?? 0,
+                    _buildStatPill(
+                        'Cần ôn lại (q=1)',
+                        _ratingStats[ReviewRating.again] ?? 0,
                         AppTheme.roseDanger),
                   ],
                 ),
@@ -317,7 +372,8 @@ class _FlashcardStudyScreenState extends ConsumerState<FlashcardStudyScreen> {
       ),
       child: Text(
         '$label: $count thẻ',
-        style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13),
+        style:
+            TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13),
       ),
     );
   }

@@ -26,7 +26,8 @@ class QuizQuestionEntity {
     this.isDeleted = false,
   });
 
-  double get accuracyRate => timesAnswered == 0 ? 0.0 : timesCorrect / timesAnswered;
+  double get accuracyRate =>
+      timesAnswered == 0 ? 0.0 : timesCorrect / timesAnswered;
 
   String get optionsJson => jsonEncode(options);
 
@@ -71,7 +72,9 @@ class QuizQuestionEntity {
 
   factory QuizQuestionEntity.fromSyncJson(Map<String, dynamic> json) {
     final rawOptions = json['options_json'] as String? ?? '[]';
-    final decoded = (jsonDecode(rawOptions) as List<dynamic>).map((e) => e.toString()).toList();
+    final decoded = (jsonDecode(rawOptions) as List<dynamic>)
+        .map((e) => e.toString())
+        .toList();
     return QuizQuestionEntity(
       id: json['id'] as String,
       studySetId: json['study_set_id'] as String,

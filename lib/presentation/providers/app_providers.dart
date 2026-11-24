@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 
 import '../../data/local/database/app_database.dart';
 import '../../data/repositories/study_repository_impl.dart';
+import '../../data/services/ai_study_assistant_service.dart';
 import '../../data/services/gemini_ai_service.dart';
 import '../../data/services/ocr_spatial_clustering_service.dart';
 import '../../data/sync/offline_sync_engine.dart';
@@ -16,11 +18,16 @@ import '../../domain/entities/ai_generated_study_content.dart';
 import '../../domain/entities/document_entity.dart';
 import '../../domain/entities/flashcard_entity.dart';
 import '../../domain/entities/ocr_result_entity.dart';
+import '../../domain/entities/review_plan_entity.dart';
+import '../../domain/entities/study_assistant_message.dart';
 import '../../domain/entities/study_session_entity.dart';
 import '../../domain/entities/study_set_entity.dart';
 import '../../domain/entities/subject_entity.dart';
+import '../../domain/entities/weakness_analysis_result.dart';
 import '../../domain/repositories/i_study_repository.dart';
+import '../../domain/services/review_planner_service.dart';
 import '../../domain/services/sm2_spaced_repetition_service.dart';
+import '../../domain/services/weakness_detection_service.dart';
 import '../../domain/usecases/generate_study_set_usecase.dart';
 import '../../domain/usecases/review_flashcard_usecase.dart';
 
@@ -28,8 +35,29 @@ import '../../domain/usecases/review_flashcard_usecase.dart';
 // CORE DEPENDENCY INJECTION PROVIDERS (RIVERPOD 2)
 // ============================================================================
 
+final authStateStreamProvider = StreamProvider<AuthState?>((ref) {
+  if (!AppConstants.isSupabaseInitialized) {
+    return const Stream.empty();
+  }
+  return Supabase.instance.client.auth.onAuthStateChange;
+});
+
+final currentUserProvider = Provider<User?>((ref) {
+  if (!AppConstants.isSupabaseInitialized) return null;
+  final authState = ref.watch(authStateStreamProvider).valueOrNull;
+  if (authState != null) {
+    return authState.session?.user;
+  }
+  try {
+    return Supabase.instance.client.auth.currentUser;
+  } catch (_) {
+    return null;
+  }
+});
+
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
-  final db = AppDatabase();
+  final user = ref.watch(currentUserProvider);
+  final db = AppDatabase.forUser(user?.id);
   ref.onDispose(db.close);
   return db;
 });
@@ -43,7 +71,13 @@ final ocrServiceProvider = Provider<OcrSpatialClusteringService>((ref) {
 });
 
 final geminiAiServiceProvider = Provider<GeminiAiService>((ref) {
-  return GeminiAiService();
+  SupabaseClient? client;
+  if (AppConstants.isSupabaseInitialized) {
+    try {
+      client = Supabase.instance.client;
+    } catch (_) {}
+  }
+  return GeminiAiService(supabaseClient: client);
 });
 
 final offlineSyncEngineProvider = Provider<OfflineSyncEngine>((ref) {
@@ -55,15 +89,6 @@ final offlineSyncEngineProvider = Provider<OfflineSyncEngine>((ref) {
     } catch (_) {}
   }
   return OfflineSyncEngine(db: db, supabaseClient: client);
-});
-
-final currentUserProvider = Provider<User?>((ref) {
-  if (!AppConstants.isSupabaseInitialized) return null;
-  try {
-    return Supabase.instance.client.auth.currentUser;
-  } catch (_) {
-    return null;
-  }
 });
 
 final studyRepositoryProvider = Provider<IStudyRepository>((ref) {
@@ -81,7 +106,8 @@ final reviewFlashcardUseCaseProvider = Provider<ReviewFlashcardUseCase>((ref) {
   return ReviewFlashcardUseCase(ref.watch(studyRepositoryProvider));
 });
 
-final saveVerifiedStudySetUseCaseProvider = Provider<SaveVerifiedStudySetUseCase>((ref) {
+final saveVerifiedStudySetUseCaseProvider =
+    Provider<SaveVerifiedStudySetUseCase>((ref) {
   return SaveVerifiedStudySetUseCase(ref.watch(studyRepositoryProvider));
 });
 
@@ -104,15 +130,18 @@ final studySetDetailStreamProvider =
   return ref.watch(studyRepositoryProvider).watchStudySetDetail(studySetId);
 });
 
-final dueFlashcardsStreamProvider = StreamProvider<List<FlashcardEntity>>((ref) {
+final dueFlashcardsStreamProvider =
+    StreamProvider<List<FlashcardEntity>>((ref) {
   return ref.watch(studyRepositoryProvider).watchDueFlashcards();
 });
 
-final allActiveFlashcardsStreamProvider = StreamProvider<List<FlashcardEntity>>((ref) {
+final allActiveFlashcardsStreamProvider =
+    StreamProvider<List<FlashcardEntity>>((ref) {
   return ref.watch(studyRepositoryProvider).watchAllActiveFlashcards();
 });
 
-final recentSessionsStreamProvider = StreamProvider<List<StudySessionEntity>>((ref) {
+final recentSessionsStreamProvider =
+    StreamProvider<List<StudySessionEntity>>((ref) {
   return ref.watch(studyRepositoryProvider).watchRecentSessions(days: 7);
 });
 
@@ -329,3 +358,232 @@ final syncControllerProvider =
     AsyncNotifierProvider<SyncControllerNotifier, int>(
   SyncControllerNotifier.new,
 );
+
+// ============================================================================
+// PHASE 4: INTELLIGENT AI FEATURES (RIVERPOD 2 DEPENDENCY INJECTION)
+// ============================================================================
+
+final aiStudyAssistantServiceProvider =
+    Provider<AiStudyAssistantService>((ref) {
+  SupabaseClient? client;
+  if (AppConstants.isSupabaseInitialized) {
+    try {
+      client = Supabase.instance.client;
+    } catch (_) {}
+  }
+  return AiStudyAssistantService(supabaseClient: client);
+});
+
+final weaknessDetectionServiceProvider =
+    Provider<WeaknessDetectionService>((ref) {
+  return const WeaknessDetectionService();
+});
+
+final reviewPlannerServiceProvider = Provider<ReviewPlannerService>((ref) {
+  return const ReviewPlannerService();
+});
+
+/// Phân tích Điểm yếu Học tập (Smart Weakness Analysis) - Phản ứng thời gian thực
+final weaknessAnalysisProvider = Provider<WeaknessAnalysisResult>((ref) {
+  final studySets = ref.watch(studySetsStreamProvider).valueOrNull ?? [];
+  final subjects = ref.watch(subjectsStreamProvider).valueOrNull ?? [];
+  final sessions = ref.watch(recentSessionsStreamProvider).valueOrNull ?? [];
+  final service = ref.watch(weaknessDetectionServiceProvider);
+
+  return service.analyze(
+    studySets: studySets,
+    subjects: subjects,
+    recentSessions: sessions,
+  );
+});
+
+/// Kế hoạch Ôn tập Cá nhân hóa Hàng ngày (Personalized Daily Review Plan)
+final dailyReviewPlanProvider = Provider<DailyReviewPlan>((ref) {
+  final studySets = ref.watch(studySetsStreamProvider).valueOrNull ?? [];
+  final subjects = ref.watch(subjectsStreamProvider).valueOrNull ?? [];
+  final sessions = ref.watch(recentSessionsStreamProvider).valueOrNull ?? [];
+  final weaknessAnalysis = ref.watch(weaknessAnalysisProvider);
+  final service = ref.watch(reviewPlannerServiceProvider);
+
+  return service.generateDailyPlan(
+    studySets: studySets,
+    subjects: subjects,
+    recentSessions: sessions,
+    weaknessAnalysis: weaknessAnalysis,
+  );
+});
+
+// ============================================================================
+// AI STUDY ASSISTANT CONTROLLER (RIVERPOD 2)
+// ============================================================================
+
+class StudyAssistantState {
+  final List<StudyAssistantMessage> messages;
+  final bool isGenerating;
+  final String? activeStudySetId;
+  final String? error;
+  final String? lastUserPrompt;
+
+  const StudyAssistantState({
+    this.messages = const [],
+    this.isGenerating = false,
+    this.activeStudySetId,
+    this.error,
+    this.lastUserPrompt,
+  });
+
+  StudyAssistantState copyWith({
+    List<StudyAssistantMessage>? messages,
+    bool? isGenerating,
+    String? activeStudySetId,
+    String? error,
+    bool clearError = false,
+    String? lastUserPrompt,
+  }) {
+    return StudyAssistantState(
+      messages: messages ?? this.messages,
+      isGenerating: isGenerating ?? this.isGenerating,
+      activeStudySetId: activeStudySetId ?? this.activeStudySetId,
+      error: clearError ? null : (error ?? this.error),
+      lastUserPrompt: lastUserPrompt ?? this.lastUserPrompt,
+    );
+  }
+}
+
+class StudyAssistantNotifier extends StateNotifier<StudyAssistantState> {
+  final Ref _ref;
+  final Uuid _uuid = const Uuid();
+
+  StudyAssistantNotifier(this._ref) : super(const StudyAssistantState());
+
+  void setStudySetContext(String? studySetId) {
+    if (state.activeStudySetId == studySetId) return;
+    state = state.copyWith(activeStudySetId: studySetId);
+  }
+
+  Future<void> sendMessage(String userPrompt,
+      {StudySetEntity? explicitStudySet}) async {
+    final cleanPrompt = userPrompt.trim();
+    if (cleanPrompt.isEmpty) return;
+
+    final targetStudySet = explicitStudySet ?? _findCurrentStudySet();
+
+    final userMessage = StudyAssistantMessage(
+      id: _uuid.v4(),
+      studySetId: targetStudySet?.id ?? state.activeStudySetId,
+      role: StudyAssistantRole.user,
+      content: cleanPrompt,
+      timestamp: DateTime.now(),
+    );
+
+    state = state.copyWith(
+      messages: [...state.messages, userMessage],
+      isGenerating: true,
+      clearError: true,
+      lastUserPrompt: cleanPrompt,
+    );
+
+    try {
+      final assistantService = _ref.read(aiStudyAssistantServiceProvider);
+      final reply = await assistantService.askAssistant(
+        userPrompt: cleanPrompt,
+        studySet: targetStudySet,
+        conversationHistory: state.messages,
+      );
+
+      state = state.copyWith(
+        messages: [...state.messages, reply],
+        isGenerating: false,
+      );
+    } catch (e) {
+      final errorMessage = StudyAssistantMessage(
+        id: _uuid.v4(),
+        studySetId: targetStudySet?.id ?? state.activeStudySetId,
+        role: StudyAssistantRole.assistant,
+        content: 'Đã có lỗi xảy ra khi xử lý phản hồi từ AI: $e',
+        timestamp: DateTime.now(),
+        isError: true,
+        errorMessage: e.toString(),
+      );
+
+      state = state.copyWith(
+        messages: [...state.messages, errorMessage],
+        isGenerating: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  Future<void> retryLast({StudySetEntity? explicitStudySet}) async {
+    final lastPrompt = state.lastUserPrompt;
+    if (lastPrompt == null || lastPrompt.isEmpty) return;
+
+    // Xóa tin nhắn lỗi cuối cùng nếu có
+    final updatedMessages = List<StudyAssistantMessage>.from(state.messages);
+    if (updatedMessages.isNotEmpty && updatedMessages.last.isError) {
+      updatedMessages.removeLast();
+    }
+    // Nếu tin nhắn ngay trước là user prompt thì không cần gửi lại tin nhắn user
+    if (updatedMessages.isNotEmpty && updatedMessages.last.isUser) {
+      updatedMessages.removeLast();
+    }
+    state = state.copyWith(messages: updatedMessages);
+
+    await sendMessage(lastPrompt, explicitStudySet: explicitStudySet);
+  }
+
+  /// Thêm thẻ flashcard nháp do AI sinh vào bộ học liệu người dùng (phải có xác nhận người dùng)
+  Future<bool> appendDraftFlashcards({
+    required StudySetEntity studySet,
+    required List<AiGeneratedFlashcardDraft> drafts,
+  }) async {
+    if (drafts.isEmpty) return false;
+    try {
+      final repo = _ref.read(studyRepositoryProvider);
+      final now = DateTime.now();
+
+      final newCards = drafts.map((d) {
+        return FlashcardEntity(
+          id: _uuid.v4(),
+          studySetId: studySet.id,
+          frontText: d.front,
+          backText: d.back,
+          hint: d.hint,
+          easeFactor: 2.5,
+          intervalDays: 0,
+          repetitionCount: 0,
+          nextReviewAt: now,
+          updatedAt: now,
+        );
+      }).toList();
+
+      final combinedCards = [...studySet.flashcards, ...newCards];
+      await repo.updateStudySetContent(
+        studySet: studySet,
+        flashcards: combinedCards,
+        quizQuestions: studySet.quizQuestions,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void clearConversation() {
+    state = state.copyWith(messages: [], clearError: true);
+  }
+
+  StudySetEntity? _findCurrentStudySet() {
+    if (state.activeStudySetId == null) return null;
+    final allSets = _ref.read(studySetsStreamProvider).valueOrNull ?? [];
+    for (final s in allSets) {
+      if (s.id == state.activeStudySetId) return s;
+    }
+    return null;
+  }
+}
+
+final studyAssistantNotifierProvider =
+    StateNotifierProvider<StudyAssistantNotifier, StudyAssistantState>((ref) {
+  return StudyAssistantNotifier(ref);
+});

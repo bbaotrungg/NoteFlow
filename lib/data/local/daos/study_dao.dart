@@ -15,7 +15,22 @@ class StudyDao {
   StudyDao(this._db);
 
   Stream<List<DocumentEntity>> watchDocumentsBySubject(String subjectId) {
-    return _db.customSelect(
+    return _db
+        .customSelect(
+          '''
+      SELECT * FROM documents
+      WHERE subject_id = ?1 AND is_deleted = 0
+      ORDER BY updated_at DESC
+      ''',
+          variables: [Variable<String>(subjectId)],
+          readsFrom: {_db.documentsTable},
+        )
+        .watch()
+        .map((rows) => rows.map(_mapDocumentRow).toList());
+  }
+
+  Future<List<DocumentEntity>> getDocumentsBySubject(String subjectId) async {
+    final rows = await _db.customSelect(
       '''
       SELECT * FROM documents
       WHERE subject_id = ?1 AND is_deleted = 0
@@ -23,126 +38,221 @@ class StudyDao {
       ''',
       variables: [Variable<String>(subjectId)],
       readsFrom: {_db.documentsTable},
-    ).watch().map((rows) => rows.map(_mapDocumentRow).toList());
+    ).get();
+    return rows.map(_mapDocumentRow).toList();
   }
 
   Stream<List<StudySetEntity>> watchAllStudySets() {
-    return _db.customSelect(
-      'SELECT * FROM study_sets WHERE is_deleted = 0 ORDER BY updated_at DESC',
-      readsFrom: {
-        _db.studySetsTable,
-        _db.flashcardsTable,
-        _db.quizQuestionsTable,
-      },
-    ).watch().asyncMap((rows) async {
-      final result = <StudySetEntity>[];
-      for (final row in rows) {
-        final id = row.read<String>('id');
-        final cards = await getFlashcardsByStudySet(id);
-        final quizzes = await getQuizQuestionsByStudySet(id);
-        result.add(
-          StudySetEntity(
-            id: id,
-            documentId: row.read<String>('document_id'),
-            title: row.read<String>('title'),
-            summaryMarkdown: row.read<String>('summary_markdown'),
-            updatedAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
-            isDeleted: row.read<int>('is_deleted') == 1,
-            flashcards: cards,
-            quizQuestions: quizzes,
-          ),
-        );
-      }
-      return result;
-    });
+    return _db
+        .customSelect(
+          '''
+      SELECT ss.* FROM study_sets ss
+      INNER JOIN documents d ON ss.document_id = d.id
+      INNER JOIN subjects s ON d.subject_id = s.id
+      WHERE ss.is_deleted = 0 AND d.is_deleted = 0 AND s.is_deleted = 0
+      ORDER BY ss.updated_at DESC
+      ''',
+          readsFrom: {
+            _db.studySetsTable,
+            _db.documentsTable,
+            _db.subjectsTable,
+            _db.flashcardsTable,
+            _db.quizQuestionsTable,
+          },
+        )
+        .watch()
+        .asyncMap((rows) async {
+          final result = <StudySetEntity>[];
+          for (final row in rows) {
+            final id = row.read<String>('id');
+            final cards = await getFlashcardsByStudySet(id);
+            final quizzes = await getQuizQuestionsByStudySet(id);
+            result.add(
+              StudySetEntity(
+                id: id,
+                documentId: row.read<String>('document_id'),
+                title: row.read<String>('title'),
+                summaryMarkdown: row.read<String>('summary_markdown'),
+                updatedAt: DateTime.fromMillisecondsSinceEpoch(
+                    row.read<int>('updated_at')),
+                isDeleted: row.read<int>('is_deleted') == 1,
+                flashcards: cards,
+                quizQuestions: quizzes,
+              ),
+            );
+          }
+          return result;
+        });
   }
 
   Stream<StudySetEntity?> watchStudySetDetail(String studySetId) {
-    return _db.customSelect(
-      'SELECT * FROM study_sets WHERE id = ?1 AND is_deleted = 0 LIMIT 1',
-      variables: [Variable<String>(studySetId)],
-      readsFrom: {
-        _db.studySetsTable,
-        _db.flashcardsTable,
-        _db.quizQuestionsTable,
-      },
-    ).watch().asyncMap((rows) async {
-      if (rows.isEmpty) return null;
-      final row = rows.first;
-      final cards = await getFlashcardsByStudySet(studySetId);
-      final quizzes = await getQuizQuestionsByStudySet(studySetId);
-      return StudySetEntity(
-        id: studySetId,
-        documentId: row.read<String>('document_id'),
-        title: row.read<String>('title'),
-        summaryMarkdown: row.read<String>('summary_markdown'),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
-        isDeleted: row.read<int>('is_deleted') == 1,
-        flashcards: cards,
-        quizQuestions: quizzes,
+    return _db
+        .customSelect(
+          '''
+      SELECT ss.* FROM study_sets ss
+      INNER JOIN documents d ON ss.document_id = d.id
+      INNER JOIN subjects s ON d.subject_id = s.id
+      WHERE ss.id = ?1 AND ss.is_deleted = 0 AND d.is_deleted = 0 AND s.is_deleted = 0
+      LIMIT 1
+      ''',
+          variables: [Variable<String>(studySetId)],
+          readsFrom: {
+            _db.studySetsTable,
+            _db.documentsTable,
+            _db.subjectsTable,
+            _db.flashcardsTable,
+            _db.quizQuestionsTable,
+          },
+        )
+        .watch()
+        .asyncMap((rows) async {
+          if (rows.isEmpty) return null;
+          final row = rows.first;
+          final cards = await getFlashcardsByStudySet(studySetId);
+          final quizzes = await getQuizQuestionsByStudySet(studySetId);
+          return StudySetEntity(
+            id: studySetId,
+            documentId: row.read<String>('document_id'),
+            title: row.read<String>('title'),
+            summaryMarkdown: row.read<String>('summary_markdown'),
+            updatedAt: DateTime.fromMillisecondsSinceEpoch(
+                row.read<int>('updated_at')),
+            isDeleted: row.read<int>('is_deleted') == 1,
+            flashcards: cards,
+            quizQuestions: quizzes,
+          );
+        });
+  }
+
+  /// Danh sách các thẻ Flashcard thực sự đến hạn ôn tập (next_review_at <= now), ưu tiên thẻ khó (ease_factor thấp)
+  /// Tự động loại bỏ thẻ thuộc các Study Set đã bị xoá mềm (Zombie Flashcards)
+  Stream<List<FlashcardEntity>> watchDueFlashcards() {
+    return _db
+        .customSelect(
+          '''
+      SELECT f.* FROM flashcards f
+      INNER JOIN study_sets st ON f.study_set_id = st.id
+      INNER JOIN documents d ON st.document_id = d.id
+      INNER JOIN subjects s ON d.subject_id = s.id
+      WHERE f.is_deleted = 0 AND st.is_deleted = 0 AND d.is_deleted = 0 AND s.is_deleted = 0
+      ORDER BY f.next_review_at ASC, f.ease_factor ASC
+      ''',
+          readsFrom: {
+            _db.flashcardsTable,
+            _db.studySetsTable,
+            _db.documentsTable,
+            _db.subjectsTable,
+          },
+        )
+        .watch()
+        .map((rows) {
+          final now = DateTime.now();
+          final allCards = rows.map(_mapFlashcardRow).toList();
+          return allCards.where((c) => !c.nextReviewAt.isAfter(now)).toList();
+        });
+  }
+
+  /// Toàn bộ các thẻ Flashcard đang hoạt động (dùng cho chế độ Luyện tập tự do)
+  /// Loại bỏ toàn bộ thẻ thuộc các bộ học liệu hoặc môn học đã bị xoá
+  Stream<List<FlashcardEntity>> watchAllActiveFlashcards() {
+    return _db
+        .customSelect(
+          '''
+      SELECT f.* FROM flashcards f
+      INNER JOIN study_sets st ON f.study_set_id = st.id
+      INNER JOIN documents d ON st.document_id = d.id
+      INNER JOIN subjects s ON d.subject_id = s.id
+      WHERE f.is_deleted = 0 AND st.is_deleted = 0 AND d.is_deleted = 0 AND s.is_deleted = 0
+      ORDER BY f.next_review_at ASC, f.ease_factor ASC
+      ''',
+          readsFrom: {
+            _db.flashcardsTable,
+            _db.studySetsTable,
+            _db.documentsTable,
+            _db.subjectsTable,
+          },
+        )
+        .watch()
+        .map((rows) => rows.map(_mapFlashcardRow).toList());
+  }
+
+  /// Đánh dấu Tombstone Soft-Delete cho bộ học liệu kèm toàn bộ Flashcards và QuizQuestions trực thuộc (Cascade Soft-Delete)
+  Future<void> tombstoneDeleteStudySet(
+      String studySetId, DateTime updatedAt) async {
+    final ms = updatedAt.millisecondsSinceEpoch;
+    await _db.transaction(() async {
+      await _db.customUpdate(
+        '''
+        UPDATE study_sets
+        SET is_deleted = 1, updated_at = ?1
+        WHERE id = ?2
+        ''',
+        variables: [
+          Variable<int>(ms),
+          Variable<String>(studySetId),
+        ],
+        updates: {_db.studySetsTable},
+        updateKind: UpdateKind.update,
+      );
+      await _db.customUpdate(
+        '''
+        UPDATE flashcards
+        SET is_deleted = 1, updated_at = ?1
+        WHERE study_set_id = ?2 AND is_deleted = 0
+        ''',
+        variables: [
+          Variable<int>(ms),
+          Variable<String>(studySetId),
+        ],
+        updates: {_db.flashcardsTable},
+        updateKind: UpdateKind.update,
+      );
+      await _db.customUpdate(
+        '''
+        UPDATE quiz_questions
+        SET is_deleted = 1, updated_at = ?1
+        WHERE study_set_id = ?2 AND is_deleted = 0
+        ''',
+        variables: [
+          Variable<int>(ms),
+          Variable<String>(studySetId),
+        ],
+        updates: {_db.quizQuestionsTable},
+        updateKind: UpdateKind.update,
       );
     });
   }
 
-  /// Danh sách các thẻ Flashcard thực sự đến hạn ôn tập (next_review_at <= now), ưu tiên thẻ khó (ease_factor thấp)
-  Stream<List<FlashcardEntity>> watchDueFlashcards() {
-    return _db.customSelect(
-      '''
-      SELECT * FROM flashcards
-      WHERE is_deleted = 0
-      ORDER BY next_review_at ASC, ease_factor ASC
-      ''',
-      readsFrom: {_db.flashcardsTable},
-    ).watch().map((rows) {
-      final now = DateTime.now();
-      final allCards = rows.map(_mapFlashcardRow).toList();
-      return allCards.where((c) => !c.nextReviewAt.isAfter(now)).toList();
-    });
-  }
-
-  /// Toàn bộ các thẻ Flashcard đang hoạt động (dùng cho chế độ Luyện tập tự do)
-  Stream<List<FlashcardEntity>> watchAllActiveFlashcards() {
-    return _db.customSelect(
-      '''
-      SELECT * FROM flashcards
-      WHERE is_deleted = 0
-      ORDER BY next_review_at ASC, ease_factor ASC
-      ''',
-      readsFrom: {_db.flashcardsTable},
-    ).watch().map((rows) => rows.map(_mapFlashcardRow).toList());
-  }
-
-  /// Đánh dấu Tombstone Soft-Delete cho bộ học liệu
-  Future<void> tombstoneDeleteStudySet(String studySetId, DateTime updatedAt) async {
-    await _db.customUpdate(
-      '''
-      UPDATE study_sets
-      SET is_deleted = 1, updated_at = ?1
-      WHERE id = ?2
-      ''',
-      variables: [
-        Variable<int>(updatedAt.millisecondsSinceEpoch),
-        Variable<String>(studySetId),
-      ],
-      updates: {_db.studySetsTable},
-      updateKind: UpdateKind.update,
-    );
-  }
-
   Stream<List<StudySessionEntity>> watchRecentSessions({int days = 7}) {
-    final cutoffMs = DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
-    return _db.customSelect(
-      '''
-      SELECT * FROM study_sessions
-      WHERE completed_at >= ?1
-      ORDER BY completed_at ASC
+    final cutoffMs =
+        DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
+    return _db
+        .customSelect(
+          '''
+      SELECT ss.* FROM study_sessions ss
+      INNER JOIN study_sets st ON ss.study_set_id = st.id
+      INNER JOIN documents d ON st.document_id = d.id
+      INNER JOIN subjects s ON d.subject_id = s.id
+      WHERE ss.completed_at >= ?1
+        AND st.is_deleted = 0
+        AND d.is_deleted = 0
+        AND s.is_deleted = 0
+      ORDER BY ss.completed_at ASC
       ''',
-      variables: [Variable<int>(cutoffMs)],
-      readsFrom: {_db.studySessionsTable},
-    ).watch().map((rows) => rows.map(_mapSessionRow).toList());
+          variables: [Variable<int>(cutoffMs)],
+          readsFrom: {
+            _db.studySessionsTable,
+            _db.studySetsTable,
+            _db.documentsTable,
+            _db.subjectsTable,
+          },
+        )
+        .watch()
+        .map((rows) => rows.map(_mapSessionRow).toList());
   }
 
-  Future<List<FlashcardEntity>> getFlashcardsByStudySet(String studySetId) async {
+  Future<List<FlashcardEntity>> getFlashcardsByStudySet(
+      String studySetId) async {
     final rows = await _db.customSelect(
       '''
       SELECT * FROM flashcards
@@ -155,7 +265,8 @@ class StudyDao {
     return rows.map(_mapFlashcardRow).toList();
   }
 
-  Future<List<QuizQuestionEntity>> getQuizQuestionsByStudySet(String studySetId) async {
+  Future<List<QuizQuestionEntity>> getQuizQuestionsByStudySet(
+      String studySetId) async {
     final rows = await _db.customSelect(
       '''
       SELECT * FROM quiz_questions
@@ -191,7 +302,8 @@ class StudyDao {
       documentId: row.read<String>('document_id'),
       title: row.read<String>('title'),
       summaryMarkdown: row.read<String>('summary_markdown'),
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
+      updatedAt:
+          DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
       isDeleted: row.read<int>('is_deleted') == 1,
     );
   }
@@ -214,6 +326,16 @@ class StudyDao {
     ).get();
     if (rows.isEmpty) return null;
     return _mapQuizRow(rows.first);
+  }
+
+  Future<StudySessionEntity?> getStudySessionById(String id) async {
+    final rows = await _db.customSelect(
+      'SELECT * FROM study_sessions WHERE id = ?1 LIMIT 1',
+      variables: [Variable<String>(id)],
+      readsFrom: {_db.studySessionsTable},
+    ).get();
+    if (rows.isEmpty) return null;
+    return _mapSessionRow(rows.first);
   }
 
   Future<void> upsertDocumentRaw({
@@ -415,7 +537,8 @@ class StudyDao {
       fileType: DocumentFileType.fromString(row.read<String>('file_type')),
       localFilePath: row.read<String>('local_file_path'),
       rawExtractedText: row.read<String>('raw_extracted_text'),
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
+      updatedAt:
+          DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
       isDeleted: row.read<int>('is_deleted') == 1,
     );
   }
@@ -430,15 +553,19 @@ class StudyDao {
       easeFactor: row.read<double>('ease_factor'),
       intervalDays: row.read<int>('interval_days'),
       repetitionCount: row.read<int>('repetition_count'),
-      nextReviewAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('next_review_at')),
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
+      nextReviewAt:
+          DateTime.fromMillisecondsSinceEpoch(row.read<int>('next_review_at')),
+      updatedAt:
+          DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
       isDeleted: row.read<int>('is_deleted') == 1,
     );
   }
 
   QuizQuestionEntity _mapQuizRow(QueryRow row) {
     final rawJson = row.read<String>('options_json');
-    final options = (jsonDecode(rawJson) as List<dynamic>).map((e) => e.toString()).toList();
+    final options = (jsonDecode(rawJson) as List<dynamic>)
+        .map((e) => e.toString())
+        .toList();
     return QuizQuestionEntity(
       id: row.read<String>('id'),
       studySetId: row.read<String>('study_set_id'),
@@ -448,7 +575,8 @@ class StudyDao {
       explanation: row.read<String>('explanation'),
       timesAnswered: row.read<int>('times_answered'),
       timesCorrect: row.read<int>('times_correct'),
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
+      updatedAt:
+          DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
       isDeleted: row.read<int>('is_deleted') == 1,
     );
   }
@@ -457,11 +585,13 @@ class StudyDao {
     return StudySessionEntity(
       id: row.read<String>('id'),
       studySetId: row.read<String>('study_set_id'),
-      sessionType: StudySessionType.fromString(row.read<String>('session_type')),
+      sessionType:
+          StudySessionType.fromString(row.read<String>('session_type')),
       score: row.readNullable<double>('score'),
       totalItems: row.read<int>('total_items'),
       durationSeconds: row.read<int>('duration_seconds'),
-      completedAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('completed_at')),
+      completedAt:
+          DateTime.fromMillisecondsSinceEpoch(row.read<int>('completed_at')),
     );
   }
 }

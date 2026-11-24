@@ -42,7 +42,7 @@ jobs:
           for i in 1 2 3; do
             echo "Attempt $i: Building Production APK..."
             if flutter build apk --release \
-              --dart-define=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }} \
+              --dart-define=GEMINI_API_KEY="" \
               --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
               --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}; then
               echo "Build succeeded on attempt $i"

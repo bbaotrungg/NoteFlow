@@ -32,7 +32,14 @@ part 'app_database.g.dart';
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
+  final String? activeUserId;
+
+  AppDatabase([QueryExecutor? executor, this.activeUserId])
+      : super(executor ?? _openConnection(activeUserId));
+
+  factory AppDatabase.forUser(String? userId, [QueryExecutor? executor]) {
+    return AppDatabase(executor, userId);
+  }
 
   late final SubjectDao subjectDao = SubjectDao(this);
   late final StudyDao studyDao = StudyDao(this);
@@ -220,8 +227,10 @@ BÀI GIẢNG: KIẾN TRÚC PHẦN MỀM DI ĐỘNG HIỆN ĐẠI (VKU)
     await studyDao.upsertFlashcardRaw(
       id: 'fc-vku-01',
       studySetId: 'set-vku-clean-arch-01',
-      frontText: 'Nguyên tắc Dependency Rule trong Clean Architecture phát biểu như thế nào?',
-      backText: 'Mã nguồn chỉ được phép phụ thuộc hướng vào bên trong. Lớp Domain nằm ở tâm và hoàn toàn không biết gì về Data Layer (SQLite/Supabase) hay Presentation Layer (Flutter UI).',
+      frontText:
+          'Nguyên tắc Dependency Rule trong Clean Architecture phát biểu như thế nào?',
+      backText:
+          'Mã nguồn chỉ được phép phụ thuộc hướng vào bên trong. Lớp Domain nằm ở tâm và hoàn toàn không biết gì về Data Layer (SQLite/Supabase) hay Presentation Layer (Flutter UI).',
       hint: 'Hãy nhớ chiều mũi tên giữa 3 vòng tròn kiến trúc.',
       easeFactor: 2.6,
       intervalDays: 1,
@@ -233,8 +242,10 @@ BÀI GIẢNG: KIẾN TRÚC PHẦN MỀM DI ĐỘNG HIỆN ĐẠI (VKU)
     await studyDao.upsertFlashcardRaw(
       id: 'fc-vku-02',
       studySetId: 'set-vku-clean-arch-01',
-      frontText: "Công thức cập nhật hệ số dễ (Ease Factor - EF') trong thuật toán SuperMemo SM-2 là gì?",
-      backText: "EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)), trong đó q là điểm đánh giá từ 0..5 và EF' luôn được giới hạn tối thiểu >= 1.3.",
+      frontText:
+          "Công thức cập nhật hệ số dễ (Ease Factor - EF') trong thuật toán SuperMemo SM-2 là gì?",
+      backText:
+          "EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)), trong đó q là điểm đánh giá từ 0..5 và EF' luôn được giới hạn tối thiểu >= 1.3.",
       hint: 'Hàm bậc hai theo độ lệch (5 - q).',
       easeFactor: 2.5,
       intervalDays: 0,
@@ -246,9 +257,12 @@ BÀI GIẢNG: KIẾN TRÚC PHẦN MỀM DI ĐỘNG HIỆN ĐẠI (VKU)
     await studyDao.upsertFlashcardRaw(
       id: 'fc-vku-03',
       studySetId: 'set-vku-clean-arch-01',
-      frontText: 'Tại sao phải dùng cơ chế Tombstone Soft-Delete (is_deleted = true) trong hệ thống Offline-First?',
-      backText: 'Vì nếu xóa cứng (Hard Delete) bản ghi khi đang offline, thiết bị sẽ mất dấu vết để báo cho Cloud xóa theo, hoặc bị Cloud ghi đè ngược lại bản ghi cũ khi đồng bộ.',
-      hint: 'Vấn đề "bản ghi sống dậy" (Zombie Record) khi đồng bộ đa thiết bị.',
+      frontText:
+          'Tại sao phải dùng cơ chế Tombstone Soft-Delete (is_deleted = true) trong hệ thống Offline-First?',
+      backText:
+          'Vì nếu xóa cứng (Hard Delete) bản ghi khi đang offline, thiết bị sẽ mất dấu vết để báo cho Cloud xóa theo, hoặc bị Cloud ghi đè ngược lại bản ghi cũ khi đồng bộ.',
+      hint:
+          'Vấn đề "bản ghi sống dậy" (Zombie Record) khi đồng bộ đa thiết bị.',
       easeFactor: 2.5,
       intervalDays: 0,
       repetitionCount: 0,
@@ -259,8 +273,10 @@ BÀI GIẢNG: KIẾN TRÚC PHẦN MỀM DI ĐỘNG HIỆN ĐẠI (VKU)
     await studyDao.upsertFlashcardRaw(
       id: 'fc-vku-04',
       studySetId: 'set-vku-clean-arch-01',
-      frontText: 'Thuật toán Spatial Row Clustering giải quyết hạn chế gì của Google ML Kit OCR?',
-      backText: 'ML Kit trả về các TextBlock rời rạc không theo thứ tự dòng trên tài liệu đa cột. Spatial Row Clustering dùng tọa độ hình học boundingBox để phân cụm cột và sắp xếp đúng thứ tự đọc từ trái sang phải, trên xuống dưới.',
+      frontText:
+          'Thuật toán Spatial Row Clustering giải quyết hạn chế gì của Google ML Kit OCR?',
+      backText:
+          'ML Kit trả về các TextBlock rời rạc không theo thứ tự dòng trên tài liệu đa cột. Spatial Row Clustering dùng tọa độ hình học boundingBox để phân cụm cột và sắp xếp đúng thứ tự đọc từ trái sang phải, trên xuống dưới.',
       hint: 'Xử lý tài liệu chia 2 cột hoặc bảng biểu.',
       easeFactor: 2.7,
       intervalDays: 6,
@@ -272,7 +288,8 @@ BÀI GIẢNG: KIẾN TRÚC PHẦN MỀM DI ĐỘNG HIỆN ĐẠI (VKU)
     await studyDao.upsertQuizQuestionRaw(
       id: 'qz-vku-01',
       studySetId: 'set-vku-clean-arch-01',
-      questionText: 'Trong thuật toán lặp lại ngắt quãng SuperMemo SM-2, nếu người học đánh giá thẻ ở mức q = 2 (nhỏ hơn 3), khoảng cách ôn tập tiếp theo (Interval) sẽ được tính như thế nào?',
+      questionText:
+          'Trong thuật toán lặp lại ngắt quãng SuperMemo SM-2, nếu người học đánh giá thẻ ở mức q = 2 (nhỏ hơn 3), khoảng cách ôn tập tiếp theo (Interval) sẽ được tính như thế nào?',
       optionsJson: jsonEncode([
         'Reset số lần lặp về 0 và đặt lịch ôn tập lại sau 1 ngày (I = 1)',
         'Giữ nguyên số lần lặp và nhân Interval cũ với hệ số EF mới',
@@ -280,7 +297,8 @@ BÀI GIẢNG: KIẾN TRÚC PHẦN MỀM DI ĐỘNG HIỆN ĐẠI (VKU)
         'Xóa thẻ khỏi danh sách ưu tiên trong 7 ngày',
       ]),
       correctIndex: 0,
-      explanation: 'Theo đặc tả SM-2, bất kỳ phản hồi nào có chất lượng q < 3 đều được coi là quên kiến thức: repetition_count bị đưa về 0 và interval_days quay lại mốc 1 ngày.',
+      explanation:
+          'Theo đặc tả SM-2, bất kỳ phản hồi nào có chất lượng q < 3 đều được coi là quên kiến thức: repetition_count bị đưa về 0 và interval_days quay lại mốc 1 ngày.',
       timesAnswered: 4,
       timesCorrect: 3,
       updatedAt: now.subtract(const Duration(days: 1)),
@@ -289,7 +307,8 @@ BÀI GIẢNG: KIẾN TRÚC PHẦN MỀM DI ĐỘNG HIỆN ĐẠI (VKU)
     await studyDao.upsertQuizQuestionRaw(
       id: 'qz-vku-02',
       studySetId: 'set-vku-clean-arch-01',
-      questionText: 'Chiến lược giải quyết xung đột Last-Write-Wins (LWW) giữa Drift SQLite và Supabase PostgreSQL dựa trên trường dữ liệu nào?',
+      questionText:
+          'Chiến lược giải quyết xung đột Last-Write-Wins (LWW) giữa Drift SQLite và Supabase PostgreSQL dựa trên trường dữ liệu nào?',
       optionsJson: jsonEncode([
         'Trường nhãn thời gian chuẩn hóa UTC updated_at của bản ghi',
         'Số thứ tự tự tăng (Auto-increment ID) trong bảng SQLite',
@@ -297,7 +316,8 @@ BÀI GIẢNG: KIẾN TRÚC PHẦN MỀM DI ĐỘNG HIỆN ĐẠI (VKU)
         'Trạng thái kết nối Wi-Fi tại thời điểm mở ứng dụng',
       ]),
       correctIndex: 0,
-      explanation: 'Last-Write-Wins so sánh trực tiếp trường updated_at (chuẩn hóa UTC) giữa bản ghi Local và bản ghi Remote để giữ lại phiên bản mới nhất.',
+      explanation:
+          'Last-Write-Wins so sánh trực tiếp trường updated_at (chuẩn hóa UTC) giữa bản ghi Local và bản ghi Remote để giữ lại phiên bản mới nhất.',
       timesAnswered: 3,
       timesCorrect: 3,
       updatedAt: now.subtract(const Duration(days: 1)),
@@ -306,7 +326,8 @@ BÀI GIẢNG: KIẾN TRÚC PHẦN MỀM DI ĐỘNG HIỆN ĐẠI (VKU)
     await studyDao.upsertQuizQuestionRaw(
       id: 'qz-vku-03',
       studySetId: 'set-vku-clean-arch-01',
-      questionText: 'Để đảm bảo mỗi sinh viên chỉ có thể truy vấn và chỉnh sửa tài liệu của chính mình trên Supabase PostgreSQL, cơ chế bảo mật nào cần được kích hoạt?',
+      questionText:
+          'Để đảm bảo mỗi sinh viên chỉ có thể truy vấn và chỉnh sửa tài liệu của chính mình trên Supabase PostgreSQL, cơ chế bảo mật nào cần được kích hoạt?',
       optionsJson: jsonEncode([
         'Row-Level Security (RLS) kiểm tra điều kiện auth.uid() = user_id',
         'Mã hóa Base64 toàn bộ cột title trước khi lưu',
@@ -314,7 +335,8 @@ BÀI GIẢNG: KIẾN TRÚC PHẦN MỀM DI ĐỘNG HIỆN ĐẠI (VKU)
         'Tắt khóa ngoại (Foreign Keys) trên bảng documents',
       ]),
       correctIndex: 0,
-      explanation: 'Row-Level Security (RLS) trên PostgreSQL kiểm tra trực tiếp JWT token thông qua hàm auth.uid() = user_id ở cấp độ từng dòng dữ liệu.',
+      explanation:
+          'Row-Level Security (RLS) trên PostgreSQL kiểm tra trực tiếp JWT token thông qua hàm auth.uid() = user_id ở cấp độ từng dòng dữ liệu.',
       timesAnswered: 5,
       timesCorrect: 4,
       updatedAt: now.subtract(const Duration(days: 1)),
@@ -346,10 +368,38 @@ BÀI GIẢNG: KIẾN TRÚC PHẦN MỀM DI ĐỘNG HIỆN ĐẠI (VKU)
   }
 }
 
-LazyDatabase _openConnection() {
+LazyDatabase _openConnection([String? activeUserId]) {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'noteflow_ai_vku.sqlite'));
+    final legacyFile = File(p.join(dbFolder.path, 'noteflow_ai_vku.sqlite'));
+
+    String targetFileName;
+    if (activeUserId == null || activeUserId.trim().isEmpty) {
+      targetFileName = 'noteflow_ai_guest.sqlite';
+      final guestFile = File(p.join(dbFolder.path, targetFileName));
+      if (await legacyFile.exists() && !await guestFile.exists()) {
+        try {
+          await legacyFile.copy(guestFile.path);
+        } catch (_) {}
+      }
+    } else {
+      final sanitized =
+          activeUserId.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
+      targetFileName = 'noteflow_user_$sanitized.sqlite';
+      final userFile = File(p.join(dbFolder.path, targetFileName));
+      if (await legacyFile.exists() && !await userFile.exists()) {
+        try {
+          await legacyFile.copy(userFile.path);
+          final backupFile = File(
+              p.join(dbFolder.path, 'noteflow_ai_vku.sqlite.legacy_backup'));
+          if (!await backupFile.exists()) {
+            await legacyFile.copy(backupFile.path);
+          }
+        } catch (_) {}
+      }
+    }
+
+    final file = File(p.join(dbFolder.path, targetFileName));
     return NativeDatabase.createInBackground(file);
   });
 }

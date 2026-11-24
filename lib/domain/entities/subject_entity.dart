@@ -57,7 +57,8 @@ class SubjectEntity {
         'is_deleted': isDeleted,
       };
 
-  factory SubjectEntity.fromSyncJson(Map<String, dynamic> json) => SubjectEntity(
+  factory SubjectEntity.fromSyncJson(Map<String, dynamic> json) =>
+      SubjectEntity(
         id: json['id'] as String,
         title: json['title'] as String,
         code: json['code'] as String,

@@ -42,7 +42,8 @@ void main() {
       expect(futureCard.isDue(now), isFalse);
     });
 
-    test('toSyncJson produces valid map with ISO timestamps and correct fields', () {
+    test('toSyncJson produces valid map with ISO timestamps and correct fields',
+        () {
       final card = FlashcardEntity(
         id: 'fc-sync',
         studySetId: 'set-sync',
@@ -73,7 +74,9 @@ void main() {
   });
 
   group('StudySetEntity Unit Tests', () {
-    test('dueFlashcardsCount counts only active (non-deleted) cards that are due', () {
+    test(
+        'dueFlashcardsCount counts only active (non-deleted) cards that are due',
+        () {
       final dueCard1 = FlashcardEntity(
         id: 'card-1',
         studySetId: 'set-1',
@@ -128,7 +131,8 @@ void main() {
   });
 
   group('SubjectEntity & QuizQuestionEntity Serialization Tests', () {
-    test('SubjectEntity toSyncJson formats ISO dates and properties accurately', () {
+    test('SubjectEntity toSyncJson formats ISO dates and properties accurately',
+        () {
       final subject = SubjectEntity(
         id: 'sub-vku-01',
         title: 'Hệ thống nhúng VKU',
@@ -150,14 +154,21 @@ void main() {
       expect(json['is_deleted'], false);
     });
 
-    test('QuizQuestionEntity computes accuracyRate and formats optionsJson', () {
+    test('QuizQuestionEntity computes accuracyRate and formats optionsJson',
+        () {
       final quiz = QuizQuestionEntity(
         id: 'quiz-01',
         studySetId: 'set-01',
         questionText: 'Thứ tự duyệt hậu thứ tự (Post-order) là gì?',
-        options: ['Gốc - Trái - Phải', 'Trái - Phải - Gốc', 'Trái - Gốc - Phải', 'Phải - Trái - Gốc'],
+        options: [
+          'Gốc - Trái - Phải',
+          'Trái - Phải - Gốc',
+          'Trái - Gốc - Phải',
+          'Phải - Trái - Gốc'
+        ],
         correctIndex: 1,
-        explanation: 'Post-order duyệt cây con trái, rồi cây con phải, cuối cùng là nút gốc.',
+        explanation:
+            'Post-order duyệt cây con trái, rồi cây con phải, cuối cùng là nút gốc.',
         timesAnswered: 5,
         timesCorrect: 4,
         updatedAt: now,
@@ -172,7 +183,8 @@ void main() {
   group('SM-2 Cognitive Matrix Extended Tests', () {
     const service = Sm2SpacedRepetitionService();
 
-    test('ReviewRating.again (q=1) forces repetition reset and 1 day interval', () {
+    test('ReviewRating.again (q=1) forces repetition reset and 1 day interval',
+        () {
       final card = FlashcardEntity(
         id: 'card-again',
         studySetId: 'set-1',
@@ -197,7 +209,9 @@ void main() {
       expect(result.nextReviewAt, now.add(const Duration(days: 1)));
     });
 
-    test('ReviewRating.hard maintains repetition progression with penalised ease factor', () {
+    test(
+        'ReviewRating.hard maintains repetition progression with penalised ease factor',
+        () {
       final card = FlashcardEntity(
         id: 'card-hard',
         studySetId: 'set-1',

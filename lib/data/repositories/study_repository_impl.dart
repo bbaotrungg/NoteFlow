@@ -30,21 +30,24 @@ class StudyRepositoryImpl implements IStudyRepository {
         _syncEngine = syncEngine;
 
   @override
-  Stream<List<SubjectEntity>> watchAllSubjects() => _db.subjectDao.watchAllActiveSubjects();
+  Stream<List<SubjectEntity>> watchAllSubjects() =>
+      _db.subjectDao.watchAllActiveSubjects();
 
   @override
   Stream<List<DocumentEntity>> watchDocumentsBySubject(String subjectId) =>
       _db.studyDao.watchDocumentsBySubject(subjectId);
 
   @override
-  Stream<List<StudySetEntity>> watchAllStudySets() => _db.studyDao.watchAllStudySets();
+  Stream<List<StudySetEntity>> watchAllStudySets() =>
+      _db.studyDao.watchAllStudySets();
 
   @override
   Stream<StudySetEntity?> watchStudySetDetail(String studySetId) =>
       _db.studyDao.watchStudySetDetail(studySetId);
 
   @override
-  Stream<List<FlashcardEntity>> watchDueFlashcards() => _db.studyDao.watchDueFlashcards();
+  Stream<List<FlashcardEntity>> watchDueFlashcards() =>
+      _db.studyDao.watchDueFlashcards();
 
   @override
   Stream<List<FlashcardEntity>> watchAllActiveFlashcards() =>
@@ -119,6 +122,9 @@ class StudyRepositoryImpl implements IStudyRepository {
     final now = DateTime.now();
     final deleted = existing.copyWith(isDeleted: true, updatedAt: now);
 
+    // Fetch related documents to enqueue sync deletion tombstones
+    final docs = await _db.studyDao.getDocumentsBySubject(subjectId);
+
     await _db.transaction(() async {
       await _db.subjectDao.tombstoneDeleteSubject(subjectId, now);
       await _db.syncDao.enqueueMutation(
@@ -127,6 +133,16 @@ class StudyRepositoryImpl implements IStudyRepository {
         operation: SyncOperation.delete,
         payloadJson: jsonEncode(deleted.toSyncJson()),
       );
+
+      for (final doc in docs) {
+        final deletedDoc = doc.copyWith(isDeleted: true, updatedAt: now);
+        await _db.syncDao.enqueueMutation(
+          tableName: 'documents',
+          recordId: doc.id,
+          operation: SyncOperation.delete,
+          payloadJson: jsonEncode(deletedDoc.toSyncJson()),
+        );
+      }
     });
   }
 
@@ -137,6 +153,10 @@ class StudyRepositoryImpl implements IStudyRepository {
     final now = DateTime.now();
     final deleted = existing.copyWith(isDeleted: true, updatedAt: now);
 
+    // Fetch active cards and quizzes before soft deleting to enqueue their tombstones
+    final cards = await _db.studyDao.getFlashcardsByStudySet(studySetId);
+    final quizzes = await _db.studyDao.getQuizQuestionsByStudySet(studySetId);
+
     await _db.transaction(() async {
       await _db.studyDao.tombstoneDeleteStudySet(studySetId, now);
       await _db.syncDao.enqueueMutation(
@@ -145,6 +165,26 @@ class StudyRepositoryImpl implements IStudyRepository {
         operation: SyncOperation.delete,
         payloadJson: jsonEncode(deleted.toSyncJson()),
       );
+
+      for (final card in cards) {
+        final deletedCard = card.copyWith(isDeleted: true, updatedAt: now);
+        await _db.syncDao.enqueueMutation(
+          tableName: 'flashcards',
+          recordId: card.id,
+          operation: SyncOperation.delete,
+          payloadJson: jsonEncode(deletedCard.toSyncJson()),
+        );
+      }
+
+      for (final q in quizzes) {
+        final deletedQuiz = q.copyWith(isDeleted: true, updatedAt: now);
+        await _db.syncDao.enqueueMutation(
+          tableName: 'quiz_questions',
+          recordId: q.id,
+          operation: SyncOperation.delete,
+          payloadJson: jsonEncode(deletedQuiz.toSyncJson()),
+        );
+      }
     });
   }
 

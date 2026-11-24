@@ -93,7 +93,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
         if (e.message.contains('Invalid login credentials')) {
           message = 'Email hoặc mật khẩu không chính xác.';
         } else if (e.message.contains('Email not confirmed')) {
-          message = 'Email chưa được xác thực. Vui lòng kiểm tra hộp thư hoặc tắt Confirm Email trong Supabase.';
+          message =
+              'Email chưa được xác thực. Vui lòng kiểm tra hộp thư hoặc tắt Confirm Email trong Supabase.';
         }
         _showErrorSnackBar(message);
       }
@@ -129,7 +130,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: AppTheme.emeraldAccent,
-              content: Text('Đăng ký thành công! Đã đăng nhập với ${res.user!.email}'),
+              content: Text(
+                  'Đăng ký thành công! Đã đăng nhập với ${res.user!.email}'),
             ),
           );
           Navigator.of(context).pushReplacement(
@@ -153,7 +155,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
       if (mounted) {
         String message = e.message;
         if (e.message.contains('User already registered')) {
-          message = 'Email này đã được đăng ký. Vui lòng chuyển sang tab Đăng nhập.';
+          message =
+              'Email này đã được đăng ký. Vui lòng chuyển sang tab Đăng nhập.';
         }
         _showErrorSnackBar(message);
       }
@@ -206,7 +209,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                          color:
+                              const Color(0xFF0284C7).withValues(alpha: 0.35),
                           blurRadius: 18,
                           offset: const Offset(0, 8),
                         ),
@@ -232,7 +236,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white60 : Colors.black54,
+                      color: isDark
+                          ? AppTheme.darkMutedText
+                          : AppTheme.lightMutedText,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -254,8 +260,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                         borderRadius: BorderRadius.circular(12),
                       ),
                       labelColor: Colors.white,
-                      unselectedLabelColor:
-                          isDark ? Colors.white70 : Colors.black87,
+                      unselectedLabelColor: isDark
+                          ? AppTheme.darkMutedText
+                          : AppTheme.lightMutedText,
                       labelStyle: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
@@ -289,7 +296,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                     icon: const Icon(Icons.offline_bolt_outlined, size: 18),
                     label: const Text('Dùng thử Offline (Không cần tài khoản)'),
                     style: TextButton.styleFrom(
-                      foregroundColor: isDark ? Colors.white70 : Colors.black87,
+                      minimumSize: const Size(48, 48),
+                      foregroundColor: isDark
+                          ? const Color(0xFF38BDF8)
+                          : AppTheme.primarySkyBlue,
                     ),
                   ),
                 ],
@@ -413,8 +423,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                       : Icons.visibility_outlined,
                 ),
                 onPressed: () {
-                  setState(() => _obscureRegisterPassword =
-                      !_obscureRegisterPassword);
+                  setState(() =>
+                      _obscureRegisterPassword = !_obscureRegisterPassword);
                 },
               ),
             ),
@@ -485,4 +495,3 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
     );
   }
 }
-

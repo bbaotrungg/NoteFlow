@@ -86,16 +86,36 @@ class _SubjectStudyDonutChartState extends State<SubjectStudyDonutChart>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     if (widget.subjects.isEmpty) {
-      return const SizedBox(
-        height: 180,
-        child: Center(child: Text('Chưa có dữ liệu môn học')),
+      return Container(
+        height: 160,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.pie_chart_outline_rounded,
+                size: 40,
+                color:
+                    isDark ? AppTheme.darkMutedText : AppTheme.lightMutedText),
+            const SizedBox(height: 8),
+            Text(
+              'Chưa có dữ liệu học tập theo môn',
+              style: TextStyle(
+                color:
+                    isDark ? AppTheme.darkMutedText : AppTheme.lightMutedText,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       );
     }
 
     final safeIndex = _selectedIndex.clamp(0, widget.subjects.length - 1);
     final selectedSubject = widget.subjects[safeIndex];
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       children: [
@@ -135,9 +155,12 @@ class _SubjectStudyDonutChartState extends State<SubjectStudyDonutChart>
               onTap: () => setState(() => _selectedIndex = index),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isSelected ? color.withValues(alpha: 0.18) : Colors.transparent,
+                  color: isSelected
+                      ? color.withValues(alpha: 0.18)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isSelected ? color : color.withValues(alpha: 0.35),
@@ -150,14 +173,16 @@ class _SubjectStudyDonutChartState extends State<SubjectStudyDonutChart>
                     Container(
                       width: 10,
                       height: 10,
-                      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                      decoration:
+                          BoxDecoration(color: color, shape: BoxShape.circle),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       '${sub.code} (${sub.totalStudyMinutes > 0 ? "${sub.totalStudyMinutes}p" : "${sub.documentCount} TL"})',
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w500,
                       ),
                     ),
                   ],
@@ -171,7 +196,7 @@ class _SubjectStudyDonutChartState extends State<SubjectStudyDonutChart>
           'Đang chọn: ${selectedSubject.title} • ${selectedSubject.dueFlashcardCount} thẻ cần ôn',
           style: TextStyle(
             fontSize: 12.5,
-            color: isDark ? Colors.white70 : Colors.black54,
+            color: isDark ? AppTheme.darkMutedText : AppTheme.lightMutedText,
           ),
           textAlign: TextAlign.center,
         ),
@@ -270,7 +295,8 @@ class SubjectDonutPainter extends CustomPainter {
 
     titlePainter.paint(
       canvas,
-      Offset(center.dx - titlePainter.width / 2, center.dy - titlePainter.height + 2),
+      Offset(center.dx - titlePainter.width / 2,
+          center.dy - titlePainter.height + 2),
     );
     subPainter.paint(
       canvas,

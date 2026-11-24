@@ -123,8 +123,10 @@ class WeeklyActivityBarPainter extends CustomPainter {
     }
     maxItems = ((maxItems / 10).ceil() * 10);
 
-    final Color gridColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-    final Color labelColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final Color gridColor =
+        isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final Color labelColor =
+        isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
     const Color flashcardBarColor = Color(0xFF0284C7);
     const Color quizBarColor = Color(0xFF10B981);
 
@@ -136,13 +138,15 @@ class WeeklyActivityBarPainter extends CustomPainter {
     for (int step = 0; step <= 4; step++) {
       final ratio = step / 4.0;
       final y = topPad + chartHeight * (1.0 - ratio);
-      canvas.drawLine(Offset(leftPad, y), Offset(leftPad + chartWidth, y), gridPaint);
+      canvas.drawLine(
+          Offset(leftPad, y), Offset(leftPad + chartWidth, y), gridPaint);
 
       final val = (maxItems * ratio).round();
       final tp = TextPainter(
         text: TextSpan(
           text: '$val',
-          style: TextStyle(color: labelColor, fontSize: 10.5, fontWeight: FontWeight.w500),
+          style: TextStyle(
+              color: labelColor, fontSize: 10.5, fontWeight: FontWeight.w500),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -163,10 +167,20 @@ class WeeklyActivityBarPainter extends CustomPainter {
       final double qzHeight = (qzCount / maxItems) * chartHeight * progress;
       final double baseLineY = topPad + chartHeight;
 
+      if (totalCount == 0) {
+        // Chỉ báo tinh tế cho ngày chưa có hoạt động
+        canvas.drawCircle(
+          Offset(centerX, baseLineY - 4),
+          2.5,
+          Paint()..color = gridColor.withValues(alpha: 0.9),
+        );
+      }
+
       // Vẽ phần Flashcard (màu Sky Blue bên dưới)
       if (fcHeight > 0) {
         final RRect fcRect = RRect.fromRectAndCorners(
-          Rect.fromLTWH(centerX - barWidth / 2, baseLineY - fcHeight, barWidth, fcHeight),
+          Rect.fromLTWH(
+              centerX - barWidth / 2, baseLineY - fcHeight, barWidth, fcHeight),
           topLeft: qzHeight == 0 ? const Radius.circular(6) : Radius.zero,
           topRight: qzHeight == 0 ? const Radius.circular(6) : Radius.zero,
         );

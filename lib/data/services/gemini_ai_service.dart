@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/errors/failures.dart';
@@ -16,8 +17,11 @@ import '../../domain/entities/ai_generated_study_content.dart';
 ///   giảng viên và sinh viên luôn kiểm thử được toàn bộ luồng end-to-end ngay lập tức.
 class GeminiAiService {
   final String _apiKey;
+  final SupabaseClient? _supabaseClient;
 
-  GeminiAiService({String? apiKey}) : _apiKey = apiKey ?? AppConstants.geminiApiKey;
+  GeminiAiService({String? apiKey, SupabaseClient? supabaseClient})
+      : _apiKey = apiKey ?? AppConstants.geminiApiKey,
+        _supabaseClient = supabaseClient;
 
   /// Định nghĩa JSON Schema nghiêm ngặt cho Gemini 1.5 Flash
   static final Schema _studySetResponseSchema = Schema.object(
@@ -28,21 +32,29 @@ class GeminiAiService {
         nullable: false,
       ),
       'flashcards': Schema.array(
-        description: 'Danh sách thẻ ghi nhớ Flashcard phục vụ ôn tập lặp lại ngắt quãng SM-2.',
+        description:
+            'Danh sách thẻ ghi nhớ Flashcard phục vụ ôn tập lặp lại ngắt quãng SM-2.',
         items: Schema.object(
           properties: {
-            'front': Schema.string(description: 'Câu hỏi hoặc thuật ngữ cốt lõi ở mặt trước thẻ.'),
-            'back': Schema.string(description: 'Định nghĩa, công thức hoặc giải thích súc tích ở mặt sau.'),
-            'hint': Schema.string(description: 'Gợi ý ngắn gọn giúp kích hoạt trí nhớ.', nullable: true),
+            'front': Schema.string(
+                description: 'Câu hỏi hoặc thuật ngữ cốt lõi ở mặt trước thẻ.'),
+            'back': Schema.string(
+                description:
+                    'Định nghĩa, công thức hoặc giải thích súc tích ở mặt sau.'),
+            'hint': Schema.string(
+                description: 'Gợi ý ngắn gọn giúp kích hoạt trí nhớ.',
+                nullable: true),
           },
           requiredProperties: ['front', 'back'],
         ),
       ),
       'quiz': Schema.array(
-        description: 'Danh sách câu hỏi trắc nghiệm khách quan 4 lựa chọn kèm giải thích.',
+        description:
+            'Danh sách câu hỏi trắc nghiệm khách quan 4 lựa chọn kèm giải thích.',
         items: Schema.object(
           properties: {
-            'question': Schema.string(description: 'Nội dung câu hỏi trắc nghiệm.'),
+            'question':
+                Schema.string(description: 'Nội dung câu hỏi trắc nghiệm.'),
             'options': Schema.array(
               description: 'Mảng gồm đúng 4 phương án trả lời.',
               items: Schema.string(),
@@ -54,7 +66,12 @@ class GeminiAiService {
               description: 'Giải thích chi tiết tại sao đáp án đó đúng.',
             ),
           },
-          requiredProperties: ['question', 'options', 'correct_index', 'explanation'],
+          requiredProperties: [
+            'question',
+            'options',
+            'correct_index',
+            'explanation'
+          ],
         ),
       ),
     },
@@ -68,12 +85,49 @@ class GeminiAiService {
     int targetFlashcardCount = 8,
     int targetQuizCount = 5,
   }) async {
-    final cleanedText = extractedText.trim();
+    var cleanedText = extractedText.trim();
     if (cleanedText.isEmpty) {
-      throw const GeminiAiFailure('Văn bản đầu vào trống. Vui lòng quét lại tài liệu hoặc nhập nội dung.');
+      throw const GeminiAiFailure(
+          'Văn bản đầu vào trống. Vui lòng quét lại tài liệu hoặc nhập nội dung.');
+    }
+    // Giới hạn độ dài đầu vào tối đa ~16.000 ký tự để tránh tràn Token context & Timeout
+    const int maxInputChars = 16000;
+    if (cleanedText.length > maxInputChars) {
+      cleanedText =
+          '${cleanedText.substring(0, maxInputChars)}\n\n[...Đã giới hạn văn bản đầu vào để tối ưu hoá tốc độ AI...]';
     }
 
-    // Nếu người dùng chưa truyền GEMINI_API_KEY qua --dart-define, sử dụng bộ tổng hợp học thuật cục bộ
+    // 1. Thử gọi qua Supabase Edge Function Proxy bảo mật (nếu client đã đăng nhập)
+    if (_supabaseClient != null && _supabaseClient.auth.currentUser != null) {
+      try {
+        final res = await _supabaseClient.functions.invoke(
+          AppConstants.geminiEdgeFunctionName,
+          body: {
+            'action': 'generate_study_content',
+            'documentTitle': documentTitle,
+            'extractedText': cleanedText,
+          },
+        );
+        if (res.status == 200 && res.data != null) {
+          final data = res.data;
+          final contentMap = data is Map<String, dynamic>
+              ? (data['data'] as Map<String, dynamic>?) ?? data
+              : null;
+          if (contentMap != null) {
+            final parsed = AiGeneratedStudyContent.fromJson(contentMap);
+            if (parsed.summaryMarkdown.isNotEmpty &&
+                parsed.flashcards.isNotEmpty &&
+                parsed.quiz.isNotEmpty) {
+              return parsed;
+            }
+          }
+        }
+      } catch (_) {
+        // Edge Function chưa được deploy hoặc lỗi mạng -> tự động fallback sang direct SDK hoặc offline
+      }
+    }
+
+    // 2. Nếu người dùng chưa truyền GEMINI_API_KEY qua --dart-define, sử dụng bộ tổng hợp học thuật cục bộ
     // để ứng dụng vẫn vận hành trơn tru khi chấm đồ án offline.
     if (_apiKey.isEmpty) {
       await Future<void>.delayed(const Duration(milliseconds: 900));
@@ -116,9 +170,8 @@ Hãy phân tích kỹ nội dung trên và sinh ra bộ học liệu JSON bằng
     while (attempt < AppConstants.maxApiRetries) {
       attempt++;
       try {
-        final response = await model
-            .generateContent([Content.text(prompt)])
-            .timeout(AppConstants.apiTimeout);
+        final response = await model.generateContent(
+            [Content.text(prompt)]).timeout(AppConstants.apiTimeout);
 
         final rawJsonText = response.text;
         if (rawJsonText == null || rawJsonText.trim().isEmpty) {
@@ -128,9 +181,23 @@ Hãy phân tích kỹ nội dung trên và sinh ra bộ học liệu JSON bằng
           );
         }
 
-        final decoded = jsonDecode(rawJsonText) as Map<String, dynamic>;
+        // Loại bỏ Markdown Code Fences (```json ... ```) nếu Gemini bọc phản hồi
+        var sanitizedJson = rawJsonText.trim();
+        if (sanitizedJson.startsWith('```json')) {
+          sanitizedJson = sanitizedJson.substring(7);
+        } else if (sanitizedJson.startsWith('```')) {
+          sanitizedJson = sanitizedJson.substring(3);
+        }
+        if (sanitizedJson.endsWith('```')) {
+          sanitizedJson = sanitizedJson.substring(0, sanitizedJson.length - 3);
+        }
+        sanitizedJson = sanitizedJson.trim();
+
+        final decoded = jsonDecode(sanitizedJson) as Map<String, dynamic>;
         final parsed = AiGeneratedStudyContent.fromJson(decoded);
-        if (parsed.summaryMarkdown.isEmpty || parsed.flashcards.isEmpty || parsed.quiz.isEmpty) {
+        if (parsed.summaryMarkdown.isEmpty ||
+            parsed.flashcards.isEmpty ||
+            parsed.quiz.isEmpty) {
           throw const GeminiAiFailure(
             'JSON trả về thiếu trường bắt buộc (summary, flashcards hoặc quiz).',
             isSchemaViolation: true,
@@ -159,7 +226,8 @@ Hãy phân tích kỹ nội dung trên và sinh ra bộ học liệu JSON bằng
       await Future<void>.delayed(Duration(milliseconds: backoffMs));
     }
 
-    throw const GeminiAiFailure('Không thể sinh nội dung học tập sau số lần thử tối đa.');
+    throw const GeminiAiFailure(
+        'Không thể sinh nội dung học tập sau số lần thử tối đa.');
   }
 
   /// Bộ tổng hợp dự phòng thông minh trích xuất trực tiếp các câu/ý chính từ văn bản OCR
@@ -190,12 +258,14 @@ $bulletPoints
       final line = lines[i];
       if (line.contains(':')) {
         final parts = line.split(':');
-        final term = parts.first.replaceAll(RegExp(r'^[-*•\d.]+\s*'), '').trim();
+        final term =
+            parts.first.replaceAll(RegExp(r'^[-*•\d.]+\s*'), '').trim();
         final def = parts.sublist(1).join(':').trim();
         if (term.isNotEmpty && def.isNotEmpty) {
           flashcards.add(
             AiGeneratedFlashcardDraft(
-              front: 'Khái niệm / Thành phần "$term" trong "$documentTitle" có ý nghĩa gì?',
+              front:
+                  'Khái niệm / Thành phần "$term" trong "$documentTitle" có ý nghĩa gì?',
               back: def,
               hint: 'Trích từ mục ${i + 1} của tài liệu.',
             ),
@@ -212,13 +282,17 @@ $bulletPoints
           hint: 'Luận điểm mở đầu tài liệu.',
         ),
         const AiGeneratedFlashcardDraft(
-          front: "Công thức cập nhật Ease Factor (EF') trong thuật toán SuperMemo SM-2 được tính như thế nào?",
-          back: "EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)), với ngưỡng tối thiểu EF' >= 1.3.",
+          front:
+              "Công thức cập nhật Ease Factor (EF') trong thuật toán SuperMemo SM-2 được tính như thế nào?",
+          back:
+              "EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)), với ngưỡng tối thiểu EF' >= 1.3.",
           hint: 'Thuật toán lặp lại ngắt quãng khoa học nhận thức.',
         ),
         const AiGeneratedFlashcardDraft(
-          front: 'Thuật toán Spatial Row Clustering xử lý các TextBlock của ML Kit như thế nào?',
-          back: 'Phân tích tọa độ hình học boundingBox để tách cột (Multi-column) và gom các từ có độ chồng lấp trục tung >= 55% vào cùng một dòng.',
+          front:
+              'Thuật toán Spatial Row Clustering xử lý các TextBlock của ML Kit như thế nào?',
+          back:
+              'Phân tích tọa độ hình học boundingBox để tách cột (Multi-column) và gom các từ có độ chồng lấp trục tung >= 55% vào cùng một dòng.',
           hint: 'Xử lý bố cục hình học 2 chiều.',
         ),
       ]);
@@ -226,18 +300,23 @@ $bulletPoints
 
     final quiz = <AiGeneratedQuizDraft>[
       AiGeneratedQuizDraft(
-        question: 'Theo nội dung tài liệu "$documentTitle", phát biểu nào sau đây phản ánh đúng nhất luận điểm chính?',
+        question:
+            'Theo nội dung tài liệu "$documentTitle", phát biểu nào sau đây phản ánh đúng nhất luận điểm chính?',
         options: [
-          lines.isNotEmpty ? lines.first : 'Tài liệu tập trung vào kiến trúc phần mềm và tối ưu hóa học tập.',
+          lines.isNotEmpty
+              ? lines.first
+              : 'Tài liệu tập trung vào kiến trúc phần mềm và tối ưu hóa học tập.',
           'Hệ thống chỉ hoạt động khi có kết nối mạng liên tục và không lưu trữ cục bộ.',
           'Dữ liệu văn bản không cần phân cụm không gian khi quét qua camera.',
           'Tất cả các thẻ nhớ đều có khoảng cách ôn tập cố định là 30 ngày.',
         ],
         correctIndex: 0,
-        explanation: 'Phương án đầu tiên được trích xuất trực tiếp từ luận điểm gốc của tài liệu học tập.',
+        explanation:
+            'Phương án đầu tiên được trích xuất trực tiếp từ luận điểm gốc của tài liệu học tập.',
       ),
       const AiGeneratedQuizDraft(
-        question: 'Khi đánh giá một thẻ Flashcard ở mức "Good" (q = 4) ở lần lặp thứ 2 (n = 2) trong thuật toán SM-2, khoảng cách ngày ôn tập tiếp theo là bao nhiêu?',
+        question:
+            'Khi đánh giá một thẻ Flashcard ở mức "Good" (q = 4) ở lần lặp thứ 2 (n = 2) trong thuật toán SM-2, khoảng cách ngày ôn tập tiếp theo là bao nhiêu?',
         options: [
           '6 ngày',
           '1 ngày',
@@ -245,10 +324,12 @@ $bulletPoints
           '0 ngày (ôn lại ngay lập tức)',
         ],
         correctIndex: 0,
-        explanation: "Theo công thức chuẩn SuperMemo SM-2: Interval(1) = 1 ngày, Interval(2) = 6 ngày, và với n > 2 thì Interval(n) = Interval(n-1) * EF'.",
+        explanation:
+            "Theo công thức chuẩn SuperMemo SM-2: Interval(1) = 1 ngày, Interval(2) = 6 ngày, và với n > 2 thì Interval(n) = Interval(n-1) * EF'.",
       ),
       const AiGeneratedQuizDraft(
-        question: 'Trong kiến trúc đồng bộ Offline-First, khi hai thiết bị cùng cập nhật một bản ghi, thuật toán Last-Write-Wins (LWW) phân xử như thế nào?',
+        question:
+            'Trong kiến trúc đồng bộ Offline-First, khi hai thiết bị cùng cập nhật một bản ghi, thuật toán Last-Write-Wins (LWW) phân xử như thế nào?',
         options: [
           'Giữ lại bản ghi có nhãn thời gian updated_at (UTC) mới hơn',
           'Luôn ưu tiên xóa bỏ cả hai bản ghi để tránh lỗi khóa ngoại',
@@ -256,7 +337,8 @@ $bulletPoints
           'Bắt buộc người dùng nhập lại toàn bộ dữ liệu từ đầu',
         ],
         correctIndex: 0,
-        explanation: 'Chiến lược Last-Write-Wins (LWW) so sánh trực tiếp trường nhãn thời gian updated_at chuẩn hóa UTC để chọn phiên bản mới nhất.',
+        explanation:
+            'Chiến lược Last-Write-Wins (LWW) so sánh trực tiếp trường nhãn thời gian updated_at chuẩn hóa UTC để chọn phiên bản mới nhất.',
       ),
     ];
 

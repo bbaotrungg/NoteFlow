@@ -101,8 +101,10 @@ class RetentionCurvePainter extends CustomPainter {
     final double chartHeight = size.height - topPad - bottomPad;
     if (chartWidth <= 0 || chartHeight <= 0) return;
 
-    final Color gridColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-    final Color labelColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final Color gridColor =
+        isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final Color labelColor =
+        isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
     const Color primaryLineColor = Color(0xFF0284C7);
     const Color baselineDecayColor = Color(0xFFF43F5E);
 
@@ -114,12 +116,14 @@ class RetentionCurvePainter extends CustomPainter {
     final yLevels = [1.0, 0.75, 0.50, 0.25];
     for (final level in yLevels) {
       final y = topPad + chartHeight * (1.0 - level);
-      canvas.drawLine(Offset(leftPad, y), Offset(leftPad + chartWidth, y), gridPaint);
+      canvas.drawLine(
+          Offset(leftPad, y), Offset(leftPad + chartWidth, y), gridPaint);
 
       final tp = TextPainter(
         text: TextSpan(
           text: '${(level * 100).toInt()}%',
-          style: TextStyle(color: labelColor, fontSize: 11, fontWeight: FontWeight.w500),
+          style: TextStyle(
+              color: labelColor, fontSize: 11, fontWeight: FontWeight.w500),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -133,7 +137,8 @@ class RetentionCurvePainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(
           text: 'N$day',
-          style: TextStyle(color: labelColor, fontSize: 11, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: labelColor, fontSize: 11, fontWeight: FontWeight.w600),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -142,9 +147,10 @@ class RetentionCurvePainter extends CustomPainter {
 
     // 3. Tính toán độ bền trí nhớ S (Memory Stability)
     final double effectiveInterval = math.max(1.5, averageIntervalDays);
-    final double sm2Stability =
-        (effectiveInterval * (averageEaseFactor / 2.2) * (1.0 + averageRepetitionCount * 0.35)) /
-            0.12;
+    final double sm2Stability = (effectiveInterval *
+            (averageEaseFactor / 2.2) *
+            (1.0 + averageRepetitionCount * 0.35)) /
+        0.12;
     const double unreviewedStability = 3.2; // Quên nhanh nếu không áp dụng SM-2
 
     // 4. Vẽ đường cong suy giảm tự nhiên nếu KHÔNG ôn tập SM-2 (Nét đứt màu hồng đỏ)
@@ -154,7 +160,8 @@ class RetentionCurvePainter extends CustomPainter {
 
     for (int i = 0; i <= activeSteps; i++) {
       final double tDays = (i / steps) * 14.0;
-      final double retention = math.exp(-tDays / unreviewedStability).clamp(0.1, 1.0);
+      final double retention =
+          math.exp(-tDays / unreviewedStability).clamp(0.1, 1.0);
       final double x = leftPad + (tDays / 14.0) * chartWidth;
       final double y = topPad + chartHeight * (1.0 - retention);
       if (i == 0) {

@@ -30,7 +30,8 @@ class ClusteredTextRow {
     required this.mergedBounds,
   });
 
-  String get reconstructedLine => elements.map((e) => e.text.trim()).where((s) => s.isNotEmpty).join(' ');
+  String get reconstructedLine =>
+      elements.map((e) => e.text.trim()).where((s) => s.isNotEmpty).join(' ');
 }
 
 /// Kết quả hoàn chỉnh từ pipeline On-Device OCR + Spatial Row Clustering

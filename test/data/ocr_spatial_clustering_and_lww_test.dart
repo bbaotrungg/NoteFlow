@@ -7,7 +7,9 @@ void main() {
   final ocrService = OcrSpatialClusteringService();
 
   group('On-Device OCR Spatial Row Clustering Tests', () {
-    test('Correctly merges words on the same horizontal row and sorts left-to-right', () {
+    test(
+        'Correctly merges words on the same horizontal row and sorts left-to-right',
+        () {
       final scrambledElements = [
         const SpatialTextElement(
           text: 'Architecture',
@@ -23,14 +25,18 @@ void main() {
         ),
       ];
 
-      final result = ocrService.clusterSpatialElements(elements: scrambledElements);
+      final result =
+          ocrService.clusterSpatialElements(elements: scrambledElements);
 
       expect(result.clusteredRows.length, 2);
-      expect(result.clusteredRows.first.reconstructedLine, 'Clean Architecture');
+      expect(
+          result.clusteredRows.first.reconstructedLine, 'Clean Architecture');
       expect(result.clusteredRows.last.reconstructedLine, 'SuperMemo SM-2');
     });
 
-    test('Detects 2-column academic layout and reads left column before right column', () {
+    test(
+        'Detects 2-column academic layout and reads left column before right column',
+        () {
       final twoColumnElements = [
         // Left column
         const SpatialTextElement(
@@ -52,7 +58,8 @@ void main() {
         ),
       ];
 
-      final result = ocrService.clusterSpatialElements(elements: twoColumnElements);
+      final result =
+          ocrService.clusterSpatialElements(elements: twoColumnElements);
 
       expect(result.detectedColumnsCount, 2);
       expect(result.clusteredRows.length, 4);

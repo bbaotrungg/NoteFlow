@@ -17,8 +17,11 @@ void main() {
     await db.close();
   });
 
-  group('OfflineSyncEngine - Last-Write-Wins (LWW) Conflict Resolution Tests', () {
-    test('Local wins when local updatedAt timestamp is strictly newer than remote', () {
+  group('OfflineSyncEngine - Last-Write-Wins (LWW) Conflict Resolution Tests',
+      () {
+    test(
+        'Local wins when local updatedAt timestamp is strictly newer than remote',
+        () {
       final localTime = DateTime.utc(2026, 11, 8, 14, 30, 0);
       final remoteTime = DateTime.utc(2026, 11, 8, 14, 25, 0);
 
@@ -27,10 +30,13 @@ void main() {
         remoteUpdatedAt: remoteTime,
       );
 
-      expect(localWins, isTrue, reason: 'Local change occurred after remote change');
+      expect(localWins, isTrue,
+          reason: 'Local change occurred after remote change');
     });
 
-    test('Remote wins when remote updatedAt timestamp is strictly newer than local', () {
+    test(
+        'Remote wins when remote updatedAt timestamp is strictly newer than local',
+        () {
       final localTime = DateTime.utc(2026, 11, 8, 14, 20, 0);
       final remoteTime = DateTime.utc(2026, 11, 8, 14, 25, 0);
 
@@ -39,10 +45,12 @@ void main() {
         remoteUpdatedAt: remoteTime,
       );
 
-      expect(localWins, isFalse, reason: 'Remote change occurred after local change');
+      expect(localWins, isFalse,
+          reason: 'Remote change occurred after local change');
     });
 
-    test('Local wins tie-breaker when both timestamps are exactly identical', () {
+    test('Local wins tie-breaker when both timestamps are exactly identical',
+        () {
       final exactTime = DateTime.utc(2026, 11, 8, 15, 0, 0, 500);
 
       final localWins = syncEngine.shouldLocalWinConflict(
@@ -50,10 +58,14 @@ void main() {
         remoteUpdatedAt: exactTime,
       );
 
-      expect(localWins, isTrue, reason: 'Tie-breaker favors local copy to prevent data loss on device');
+      expect(localWins, isTrue,
+          reason:
+              'Tie-breaker favors local copy to prevent data loss on device');
     });
 
-    test('Correctly compares timestamps across different timezone offsets using UTC normalization', () {
+    test(
+        'Correctly compares timestamps across different timezone offsets using UTC normalization',
+        () {
       // Local time in UTC+7 (Vietnam standard time): 17:00:00 = 10:00:00 UTC
       final localTimeVn = DateTime.parse('2026-11-08T17:00:00+07:00');
       // Remote time in UTC (Supabase cloud): 10:00:00 UTC
@@ -65,7 +77,8 @@ void main() {
           remoteUpdatedAt: remoteTimeUtc,
         ),
         isTrue,
-        reason: '17:00+07:00 and 10:00Z represent the identical UTC instant (tie-breaker)',
+        reason:
+            '17:00+07:00 and 10:00Z represent the identical UTC instant (tie-breaker)',
       );
 
       // Remote time 1 second later: 10:00:01 UTC
@@ -95,12 +108,14 @@ void main() {
   });
 
   group('SyncQueueItemEntity & Enums Serialization Tests', () {
-    test('SyncOperation parses uppercase, lowercase and fallback gracefully', () {
+    test('SyncOperation parses uppercase, lowercase and fallback gracefully',
+        () {
       expect(SyncOperation.fromString('INSERT'), equals(SyncOperation.insert));
       expect(SyncOperation.fromString('insert'), equals(SyncOperation.insert));
       expect(SyncOperation.fromString('UPDATE'), equals(SyncOperation.update));
       expect(SyncOperation.fromString('DELETE'), equals(SyncOperation.delete));
-      expect(SyncOperation.fromString('INVALID_OP'), equals(SyncOperation.update));
+      expect(
+          SyncOperation.fromString('INVALID_OP'), equals(SyncOperation.update));
     });
 
     test('SyncStatus parses uppercase, lowercase and fallback gracefully', () {
@@ -108,7 +123,8 @@ void main() {
       expect(SyncStatus.fromString('pending'), equals(SyncStatus.pending));
       expect(SyncStatus.fromString('SYNCING'), equals(SyncStatus.syncing));
       expect(SyncStatus.fromString('FAILED'), equals(SyncStatus.failed));
-      expect(SyncStatus.fromString('UNKNOWN_STATUS'), equals(SyncStatus.pending));
+      expect(
+          SyncStatus.fromString('UNKNOWN_STATUS'), equals(SyncStatus.pending));
     });
 
     test('SyncQueueItemEntity maintains state correctly', () {

@@ -144,7 +144,8 @@ class _Interactive3DFlashcardState extends State<Interactive3DFlashcard>
             return Transform(
               alignment: Alignment.center,
               transform: Matrix4.identity()
-                ..setEntry(3, 2, 0.0012) // Phối cảnh chiều sâu 3D (3D Perspective Depth)
+                ..setEntry(3, 2,
+                    0.0012) // Phối cảnh chiều sâu 3D (3D Perspective Depth)
                 ..rotateY(angle),
               child: showingFront
                   ? _buildCardSurface(
@@ -176,177 +177,221 @@ class _Interactive3DFlashcardState extends State<Interactive3DFlashcard>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final card = widget.flashcard;
 
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 340, maxHeight: 430),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isFront
-              ? (isDark
-                  ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                  : [Colors.white, const Color(0xFFF0F9FF)])
-              : (isDark
-                  ? [const Color(0xFF0F172A), const Color(0xFF1E1B4B)]
-                  : [const Color(0xFFF0FDF4), Colors.white]),
-        ),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(
-          color: previewRating != null
-              ? _badgeColorForRating(previewRating)
-              : (isFront
-                  ? AppTheme.primarySkyBlue.withValues(alpha: 0.45)
-                  : AppTheme.emeraldAccent.withValues(alpha: 0.55)),
-          width: previewRating != null ? 2.8 : 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+    return Semantics(
+      label: isFront
+          ? 'Mặt trước thẻ ghi nhớ: ${card.frontText}. Chạm để lật sang mặt sau xem đáp án.'
+          : 'Mặt sau thẻ ghi nhớ: ${card.backText}. Chạm để lật lại mặt trước.',
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 340, maxHeight: 430),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isFront
+                ? (isDark
+                    ? [const Color(0xFF1E293B), const Color(0xFF0C243C)]
+                    : [Colors.white, const Color(0xFFF0F9FF)])
+                : (isDark
+                    ? [
+                        const Color(0xFF064E3B).withValues(alpha: 0.5),
+                        const Color(0xFF0F291E)
+                      ]
+                    : [const Color(0xFFF0FDF4), Colors.white]),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header thông số SuperMemo SM-2
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: (isFront ? AppTheme.primarySkyBlue : AppTheme.emeraldAccent)
-                      .withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isFront ? Icons.help_outline_rounded : Icons.lightbulb_rounded,
-                      size: 16,
-                      color: isFront ? AppTheme.primarySkyBlue : AppTheme.emeraldAccent,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      isFront ? 'MẶT TRƯỚC (CÂU HỎI)' : 'MẶT SAU (ĐÁP ÁN)',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: isFront ? AppTheme.primarySkyBlue : AppTheme.emeraldAccent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                'EF: ${card.easeFactor.toStringAsFixed(2)} • Lặp: ${card.repetitionCount} • ${card.intervalDays}d',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white60 : Colors.black54,
-                ),
-              ),
-            ],
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(
+            color: previewRating != null
+                ? _badgeColorForRating(previewRating)
+                : (isFront
+                    ? (isDark
+                        ? const Color(0xFF38BDF8).withValues(alpha: 0.6)
+                        : AppTheme.primarySkyBlue.withValues(alpha: 0.55))
+                    : (isDark
+                        ? const Color(0xFF34D399).withValues(alpha: 0.65)
+                        : AppTheme.emeraldAccent.withValues(alpha: 0.65))),
+            width: previewRating != null ? 3.0 : 2.0,
           ),
-          if (previewRating != null) ...[
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.center,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _badgeColorForRating(previewRating),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  '${previewRating.swipeDirectionLabel}: ${previewRating.label} (q=${previewRating.quality})',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: isFront
+                  ? AppTheme.primarySkyBlue
+                      .withValues(alpha: isDark ? 0.2 : 0.1)
+                  : AppTheme.emeraldAccent
+                      .withValues(alpha: isDark ? 0.25 : 0.12),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
             ),
           ],
-          const SizedBox(height: 12),
-          // Nội dung chính của thẻ (Scrollable nếu văn bản dài)
-          Expanded(
-            child: Center(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Text(
-                  isFront ? card.frontText : card.backText,
-                  textAlign: TextAlign.center,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header thông số SuperMemo SM-2
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: (isFront
+                            ? AppTheme.primarySkyBlue
+                            : AppTheme.emeraldAccent)
+                        .withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: (isFront
+                              ? AppTheme.primarySkyBlue
+                              : AppTheme.emeraldAccent)
+                          .withValues(alpha: 0.35),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isFront
+                            ? Icons.help_outline_rounded
+                            : Icons.check_circle_outline_rounded,
+                        size: 16,
+                        color: isFront
+                            ? (isDark
+                                ? const Color(0xFF38BDF8)
+                                : AppTheme.primarySkyBlue)
+                            : (isDark
+                                ? const Color(0xFF34D399)
+                                : AppTheme.emeraldAccent),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        isFront ? 'MẶT TRƯỚC (CÂU HỎI)' : 'MẶT SAU (ĐÁP ÁN)',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: isFront
+                              ? (isDark
+                                  ? const Color(0xFF38BDF8)
+                                  : AppTheme.primarySkyBlue)
+                              : (isDark
+                                  ? const Color(0xFF34D399)
+                                  : AppTheme.emeraldAccent),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  'EF: ${card.easeFactor.toStringAsFixed(2)} • Lặp: ${card.repetitionCount} • ${card.intervalDays}d',
                   style: TextStyle(
-                    fontSize: isFront ? 19 : 17,
-                    height: 1.45,
-                    fontWeight: isFront ? FontWeight.w700 : FontWeight.w500,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : AppTheme.lightMutedText,
+                  ),
+                ),
+              ],
+            ),
+            if (previewRating != null) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.center,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _badgeColorForRating(previewRating),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    '${previewRating.swipeDirectionLabel}: ${previewRating.label} (q=${previewRating.quality})',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            // Nội dung chính của thẻ (Scrollable nếu văn bản dài)
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Text(
+                    isFront ? card.frontText : card.backText,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: isFront ? 19 : 17,
+                      height: 1.45,
+                      fontWeight: isFront ? FontWeight.w700 : FontWeight.w500,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          // Gợi ý (Hint) và hướng dẫn lật 3D
-          if (isFront && card.hint != null && card.hint!.isNotEmpty) ...[
-            if (_showHint)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.amberWarning.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.amberWarning.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.tips_and_updates_rounded,
-                        size: 18, color: AppTheme.amberWarning),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Gợi ý: ${card.hint}',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            const SizedBox(height: 12),
+            // Gợi ý (Hint) và hướng dẫn lật 3D
+            if (isFront && card.hint != null && card.hint!.isNotEmpty) ...[
+              if (_showHint)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.amberWarning.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: AppTheme.amberWarning.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.tips_and_updates_rounded,
+                          size: 18, color: AppTheme.amberWarning),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Gợi ý: ${card.hint}',
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                )
+              else
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () => setState(() => _showHint = true),
+                    icon: const Icon(Icons.visibility_outlined, size: 16),
+                    label: const Text('Xem gợi ý (Hint)'),
+                  ),
                 ),
-              )
-            else
-              Center(
-                child: TextButton.icon(
-                  onPressed: () => setState(() => _showHint = true),
-                  icon: const Icon(Icons.visibility_outlined, size: 16),
-                  label: const Text('Xem gợi ý (Hint)'),
-                ),
-              ),
-            const SizedBox(height: 8),
-          ],
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.threesixty_rounded,
-                size: 16,
-                color: isDark ? Colors.white54 : Colors.black45,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Chạm để lật 3D • Vuốt Trái (Khó) / Lên (Vừa) / Phải (Dễ)',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? Colors.white54 : Colors.black45,
-                ),
-              ),
+              const SizedBox(height: 8),
             ],
-          ),
-        ],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.threesixty_rounded,
+                  size: 16,
+                  color: isDark ? Colors.white70 : AppTheme.lightMutedText,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Chạm để lật 3D • Vuốt Trái (Khó) / Lên (Vừa) / Phải (Dễ)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white70 : AppTheme.lightMutedText,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

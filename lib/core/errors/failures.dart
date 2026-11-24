@@ -7,7 +7,8 @@ sealed class AppFailure implements Exception {
   const AppFailure(this.message, {this.code, this.originalError});
 
   @override
-  String toString() => '[$runtimeType] $message ${code != null ? "(Code: $code)" : ""}';
+  String toString() =>
+      '[$runtimeType] $message ${code != null ? "(Code: $code)" : ""}';
 }
 
 class DatabaseFailure extends AppFailure {
@@ -44,6 +45,7 @@ class SyncEngineFailure extends AppFailure {
 
 class NetworkOfflineFailure extends AppFailure {
   const NetworkOfflineFailure([
-    super.message = 'Thiết bị đang ngoại tuyến. Dữ liệu đã được lưu vào hàng đợi đồng bộ cục bộ (Sync Queue).',
+    super.message =
+        'Thiết bị đang ngoại tuyến. Dữ liệu đã được lưu vào hàng đợi đồng bộ cục bộ (Sync Queue).',
   ]);
 }

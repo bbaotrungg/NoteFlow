@@ -38,6 +38,8 @@ class SubjectDao {
           INNER JOIN study_sets st2 ON ss.study_set_id = st2.id
           INNER JOIN documents d3 ON st2.document_id = d3.id
           WHERE d3.subject_id = s.id
+            AND st2.is_deleted = 0
+            AND d3.is_deleted = 0
         ) AS total_seconds
       FROM subjects s
       WHERE s.is_deleted = 0
@@ -45,32 +47,36 @@ class SubjectDao {
     ''';
 
     final nowMs = DateTime.now().millisecondsSinceEpoch;
-    return _db.customSelect(
-      sql,
-      variables: [Variable<int>(nowMs)],
-      readsFrom: {
-        _db.subjectsTable,
-        _db.documentsTable,
-        _db.studySetsTable,
-        _db.flashcardsTable,
-        _db.studySessionsTable,
-      },
-    ).watch().map((rows) {
-      return rows.map((row) {
-        final totalSec = row.readNullable<int>('total_seconds') ?? 0;
-        return SubjectEntity(
-          id: row.read<String>('id'),
-          title: row.read<String>('title'),
-          code: row.read<String>('code'),
-          colorHex: row.read<String>('color_hex'),
-          updatedAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
-          isDeleted: row.read<int>('is_deleted') == 1,
-          documentCount: row.readNullable<int>('doc_count') ?? 0,
-          dueFlashcardCount: row.readNullable<int>('due_count') ?? 0,
-          totalStudyMinutes: (totalSec / 60).ceil(),
-        );
-      }).toList();
-    });
+    return _db
+        .customSelect(
+          sql,
+          variables: [Variable<int>(nowMs)],
+          readsFrom: {
+            _db.subjectsTable,
+            _db.documentsTable,
+            _db.studySetsTable,
+            _db.flashcardsTable,
+            _db.studySessionsTable,
+          },
+        )
+        .watch()
+        .map((rows) {
+          return rows.map((row) {
+            final totalSec = row.readNullable<int>('total_seconds') ?? 0;
+            return SubjectEntity(
+              id: row.read<String>('id'),
+              title: row.read<String>('title'),
+              code: row.read<String>('code'),
+              colorHex: row.read<String>('color_hex'),
+              updatedAt: DateTime.fromMillisecondsSinceEpoch(
+                  row.read<int>('updated_at')),
+              isDeleted: row.read<int>('is_deleted') == 1,
+              documentCount: row.readNullable<int>('doc_count') ?? 0,
+              dueFlashcardCount: row.readNullable<int>('due_count') ?? 0,
+              totalStudyMinutes: (totalSec / 60).ceil(),
+            );
+          }).toList();
+        });
   }
 
   Future<SubjectEntity?> getSubjectById(String id) async {
@@ -87,7 +93,8 @@ class SubjectDao {
       title: row.read<String>('title'),
       code: row.read<String>('code'),
       colorHex: row.read<String>('color_hex'),
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
+      updatedAt:
+          DateTime.fromMillisecondsSinceEpoch(row.read<int>('updated_at')),
       isDeleted: row.read<int>('is_deleted') == 1,
     );
   }
@@ -123,16 +130,76 @@ class SubjectDao {
     );
   }
 
-  /// Tombstone Soft-Delete (is_deleted = true) chuẩn Offline-First
+  /// Tombstone Soft-Delete (is_deleted = true) chuẩn Offline-First kết hợp Cascade sang Documents, StudySets, Flashcards, Quizzes
   Future<void> tombstoneDeleteSubject(String id, DateTime deletedAt) async {
-    await _db.customUpdate(
-      'UPDATE subjects SET is_deleted = 1, updated_at = ?1 WHERE id = ?2',
-      variables: [
-        Variable<int>(deletedAt.millisecondsSinceEpoch),
-        Variable<String>(id),
-      ],
-      updates: {_db.subjectsTable},
-      updateKind: UpdateKind.update,
-    );
+    final ms = deletedAt.millisecondsSinceEpoch;
+    await _db.transaction(() async {
+      await _db.customUpdate(
+        'UPDATE subjects SET is_deleted = 1, updated_at = ?1 WHERE id = ?2',
+        variables: [
+          Variable<int>(ms),
+          Variable<String>(id),
+        ],
+        updates: {_db.subjectsTable},
+        updateKind: UpdateKind.update,
+      );
+      // Cascade sang Documents thuộc môn học này
+      await _db.customUpdate(
+        'UPDATE documents SET is_deleted = 1, updated_at = ?1 WHERE subject_id = ?2 AND is_deleted = 0',
+        variables: [
+          Variable<int>(ms),
+          Variable<String>(id),
+        ],
+        updates: {_db.documentsTable},
+        updateKind: UpdateKind.update,
+      );
+      // Cascade sang StudySets thuộc các tài liệu của môn học này
+      await _db.customUpdate(
+        '''
+        UPDATE study_sets SET is_deleted = 1, updated_at = ?1
+        WHERE document_id IN (SELECT id FROM documents WHERE subject_id = ?2) AND is_deleted = 0
+        ''',
+        variables: [
+          Variable<int>(ms),
+          Variable<String>(id),
+        ],
+        updates: {_db.studySetsTable},
+        updateKind: UpdateKind.update,
+      );
+      // Cascade sang Flashcards thuộc các StudySets của môn học này
+      await _db.customUpdate(
+        '''
+        UPDATE flashcards SET is_deleted = 1, updated_at = ?1
+        WHERE study_set_id IN (
+          SELECT ss.id FROM study_sets ss
+          INNER JOIN documents d ON ss.document_id = d.id
+          WHERE d.subject_id = ?2
+        ) AND is_deleted = 0
+        ''',
+        variables: [
+          Variable<int>(ms),
+          Variable<String>(id),
+        ],
+        updates: {_db.flashcardsTable},
+        updateKind: UpdateKind.update,
+      );
+      // Cascade sang QuizQuestions thuộc các StudySets của môn học này
+      await _db.customUpdate(
+        '''
+        UPDATE quiz_questions SET is_deleted = 1, updated_at = ?1
+        WHERE study_set_id IN (
+          SELECT ss.id FROM study_sets ss
+          INNER JOIN documents d ON ss.document_id = d.id
+          WHERE d.subject_id = ?2
+        ) AND is_deleted = 0
+        ''',
+        variables: [
+          Variable<int>(ms),
+          Variable<String>(id),
+        ],
+        updates: {_db.quizQuestionsTable},
+        updateKind: UpdateKind.update,
+      );
+    });
   }
 }

@@ -12,10 +12,14 @@ class SyncDao {
   SyncDao(this._db);
 
   Stream<int> watchPendingSyncCount() {
-    return _db.customSelect(
-      "SELECT COUNT(*) AS cnt FROM sync_queue WHERE status IN ('PENDING', 'FAILED')",
-      readsFrom: {_db.syncQueueTable},
-    ).watch().map((rows) => rows.isEmpty ? 0 : (rows.first.readNullable<int>('cnt') ?? 0));
+    return _db
+        .customSelect(
+          "SELECT COUNT(*) AS cnt FROM sync_queue WHERE status IN ('PENDING', 'FAILED')",
+          readsFrom: {_db.syncQueueTable},
+        )
+        .watch()
+        .map((rows) =>
+            rows.isEmpty ? 0 : (rows.first.readNullable<int>('cnt') ?? 0));
   }
 
   /// Đưa một thao tác thay đổi dữ liệu (INSERT / UPDATE / DELETE) vào hàng đợi đồng bộ.
@@ -84,7 +88,8 @@ class SyncDao {
     }
   }
 
-  Future<List<SyncQueueItemEntity>> getPendingSyncItems({int limit = 50}) async {
+  Future<List<SyncQueueItemEntity>> getPendingSyncItems(
+      {int limit = 50}) async {
     final rows = await _db.customSelect(
       '''
       SELECT * FROM sync_queue
@@ -105,7 +110,8 @@ class SyncDao {
         payloadJson: row.read<String>('payload_json'),
         status: SyncStatus.fromString(row.read<String>('status')),
         retryCount: row.read<int>('retry_count'),
-        createdAt: DateTime.fromMillisecondsSinceEpoch(row.read<int>('created_at')),
+        createdAt:
+            DateTime.fromMillisecondsSinceEpoch(row.read<int>('created_at')),
       );
     }).toList();
   }
@@ -132,6 +138,15 @@ class SyncDao {
     await _db.customUpdate(
       "UPDATE sync_queue SET status = 'FAILED', retry_count = retry_count + 1 WHERE id = ?1",
       variables: [Variable<String>(id)],
+      updates: {_db.syncQueueTable},
+      updateKind: UpdateKind.update,
+    );
+  }
+
+  /// Khôi phục các bản ghi bị kẹt ở trạng thái 'SYNCING' (do app crash hoặc ngắt mạng) về 'PENDING'
+  Future<int> recoverOrphanedSyncingItems() async {
+    return _db.customUpdate(
+      "UPDATE sync_queue SET status = 'PENDING' WHERE status = 'SYNCING'",
       updates: {_db.syncQueueTable},
       updateKind: UpdateKind.update,
     );

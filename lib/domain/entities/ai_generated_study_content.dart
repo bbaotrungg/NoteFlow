@@ -80,22 +80,45 @@ class AiGeneratedStudyContent {
 
   factory AiGeneratedStudyContent.fromJson(Map<String, dynamic> json) {
     final summary = (json['summary'] as String? ?? '').trim();
+
+    // Map defensively from dynamic maps and deduplicate flashcards by front text
     final rawCards = (json['flashcards'] as List<dynamic>? ?? [])
+        .map((e) => e is Map ? Map<String, dynamic>.from(e) : null)
         .whereType<Map<String, dynamic>>()
         .map(AiGeneratedFlashcardDraft.fromJson)
         .where((c) => c.front.isNotEmpty && c.back.isNotEmpty)
         .toList();
 
+    final seenFronts = <String>{};
+    final uniqueCards = <AiGeneratedFlashcardDraft>[];
+    for (final card in rawCards) {
+      final key = card.front.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      if (seenFronts.add(key)) {
+        uniqueCards.add(card);
+      }
+    }
+
+    // Map defensively and deduplicate quizzes by question text
     final rawQuiz = (json['quiz'] as List<dynamic>? ?? [])
+        .map((e) => e is Map ? Map<String, dynamic>.from(e) : null)
         .whereType<Map<String, dynamic>>()
         .map(AiGeneratedQuizDraft.fromJson)
         .where((q) => q.question.isNotEmpty)
         .toList();
 
+    final seenQuestions = <String>{};
+    final uniqueQuiz = <AiGeneratedQuizDraft>[];
+    for (final q in rawQuiz) {
+      final key = q.question.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+      if (seenQuestions.add(key)) {
+        uniqueQuiz.add(q);
+      }
+    }
+
     return AiGeneratedStudyContent(
       summaryMarkdown: summary,
-      flashcards: rawCards,
-      quiz: rawQuiz,
+      flashcards: uniqueCards,
+      quiz: uniqueQuiz,
     );
   }
 
