@@ -99,11 +99,13 @@
 ## 6. ĐỒNG BỘ GITHUB & PHÁT HÀNH BẢN RELEASE (GITHUB RELEASE & SYNC)
 
 - **Thông điệp Commit:** `chore: finalize NoteFlow v1.1.0 release`
-- **Commit Hash:** *(sẽ được cập nhật sau lệnh push)*
-- **Nhánh đích:** `origin/main`
-- **Thẻ Git (Tag):** `v1.1.0`
-- **Địa chỉ GitHub Release:** `https://github.com/bbaotrungg/NoteFlow/releases/tag/v1.1.0`
-- **Tệp đính kèm bản Release:** `NoteFlow-v1.1.0-demo.apk` (95.37 MB).
+- **Commit Hash:** `7f2b8e24c597708b9fb0af9f778240a084208a5b`
+- **Xác minh Remote `origin/main`:** Đã đồng bộ thành công, remote HEAD trỏ tới commit `7f2b8e2`.
+- **Đường dẫn GitHub Actions CI Pipeline:** [Run #45430294791](https://github.com/bbaotrungg/NoteFlow/actions/runs/45430294791)
+- **Thẻ Git (Tag):** `v1.1.0` (đã tạo và đẩy lên GitHub)
+- **Địa chỉ GitHub Release:** [NoteFlow AI v1.1.0](https://github.com/bbaotrungg/NoteFlow/releases/tag/v1.1.0)
+- **Tệp đính kèm bản Release:** `NoteFlow-v1.1.0-demo.apk` (100,000,703 bytes ~ 95.37 MB)
+- **Đường dẫn tải trực tiếp (Direct Download):** [NoteFlow-v1.1.0-demo.apk](https://github.com/bbaotrungg/NoteFlow/releases/download/v1.1.0/NoteFlow-v1.1.0-demo.apk)
 
 ---
 
